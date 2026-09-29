@@ -2,6 +2,7 @@
 tests never hit the network."""
 
 import pytest
+from google.genai import errors
 
 from jobs_agent.profile import Profile
 from jobs_agent.profile_chat.assistant import ChatError, chat_turn
@@ -115,5 +116,67 @@ def test_empty_proposal_object_becomes_none(monkeypatch):
 def test_missing_api_key_is_a_chat_error(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(ChatError):
+        chat_turn(PROFILE, [], "hello")
+
+
+def mock_overloaded(monkeypatch):
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            raise errors.ServerError(503, {"error": {"message": "overloaded"}})
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("jobs_agent.profile_chat.assistant._client", lambda: FakeClient())
+
+
+def test_a_gemini_503_falls_back_to_openrouter(monkeypatch):
+    mock_overloaded(monkeypatch)
+    monkeypatch.setattr(
+        "jobs_agent.profile_chat.assistant.openrouter.chat_completion",
+        lambda messages, **kwargs: '{"reply": "from openrouter", "proposal": null}',
+    )
+    result = chat_turn(PROFILE, [], "hello")
+    assert result == {"reply": "from openrouter", "proposal": None}
+
+
+def test_a_fenced_openrouter_reply_is_still_parsed(monkeypatch):
+    mock_overloaded(monkeypatch)
+    fenced = '```json\n{"reply": "from openrouter", "proposal": null}\n```'
+    monkeypatch.setattr(
+        "jobs_agent.profile_chat.assistant.openrouter.chat_completion",
+        lambda messages, **kwargs: fenced,
+    )
+    result = chat_turn(PROFILE, [], "hello")
+    assert result == {"reply": "from openrouter", "proposal": None}
+
+
+def test_a_non_503_gemini_error_does_not_fall_back(monkeypatch):
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            raise errors.ClientError(400, {"error": {"message": "bad request"}})
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("jobs_agent.profile_chat.assistant._client", lambda: FakeClient())
+    monkeypatch.setattr(
+        "jobs_agent.profile_chat.assistant.openrouter.chat_completion",
+        lambda messages, **kwargs: pytest.fail("should not have called OpenRouter"),
+    )
+    with pytest.raises(ChatError):
+        chat_turn(PROFILE, [], "hello")
+
+
+def test_openrouter_fallback_also_failing_is_a_chat_error(monkeypatch):
+    mock_overloaded(monkeypatch)
+
+    def raise_fallback_error(messages, **kwargs):
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
+
+    monkeypatch.setattr(
+        "jobs_agent.profile_chat.assistant.openrouter.chat_completion", raise_fallback_error,
+    )
     with pytest.raises(ChatError):
         chat_turn(PROFILE, [], "hello")

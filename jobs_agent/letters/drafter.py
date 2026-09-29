@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 
+from .. import openrouter
 from ..config import gemini_model
 from .prompts import DRAFT_SYSTEM, REDRAFT_SYSTEM, draft_prompt, redraft_prompt
 
@@ -48,7 +49,11 @@ def _client():
 
 
 def _generate(prompt: str, system: str, *, what: str) -> str:
-    """One generate_content call, with every failure mode as a DraftError."""
+    """One generate_content call, with every failure mode as a DraftError.
+
+    Falls back to OpenRouter when Gemini is overloaded (503) rather than
+    failing the draft outright.
+    """
     client = _client()
     from google.genai import types
 
@@ -62,7 +67,19 @@ def _generate(prompt: str, system: str, *, what: str) -> str:
                 max_output_tokens=MAX_OUTPUT_TOKENS,
             ),
         )
-    except Exception as e:  # surface any SDK/API error to the caller
+    except Exception as e:
+        if openrouter.is_gemini_overloaded(e):
+            try:
+                return openrouter.chat_completion(
+                    [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=TEMPERATURE,
+                    max_tokens=MAX_OUTPUT_TOKENS,
+                )
+            except Exception as fallback_e:
+                raise DraftError(f"{what} failed: {e} (OpenRouter fallback also failed: {fallback_e})") from fallback_e
         raise DraftError(f"{what} failed: {e}") from e
 
     text = (getattr(resp, "text", None) or "").strip()

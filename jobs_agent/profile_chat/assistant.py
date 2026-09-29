@@ -14,6 +14,7 @@ import logging
 import os
 from typing import Any
 
+from .. import openrouter
 from ..config import gemini_model
 from ..profile import Profile
 from .prompts import system_instruction
@@ -62,6 +63,20 @@ def _contents(history: list[dict], message: str) -> list[dict]:
     return contents
 
 
+def _openrouter_messages(system: str, history: list[dict], message: str) -> list[dict]:
+    messages = [{"role": "system", "content": system}]
+    for turn in history:
+        if not isinstance(turn, dict):
+            continue
+        text = str(turn.get("content", "")).strip()
+        if not text:
+            continue
+        role = "assistant" if turn.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": text})
+    messages.append({"role": "user", "content": message})
+    return messages
+
+
 def chat_turn(profile: Profile, history: list[dict], message: str) -> dict[str, Any]:
     """One turn of the profile chat.
 
@@ -72,18 +87,32 @@ def chat_turn(profile: Profile, history: list[dict], message: str) -> dict[str, 
     client = _client()
     from google.genai import types
 
+    system = system_instruction(profile)
     try:
         resp = client.models.generate_content(
             model=gemini_model(),
             contents=_contents(history, message),
             config=types.GenerateContentConfig(
-                system_instruction=system_instruction(profile),
+                system_instruction=system,
                 temperature=TEMPERATURE,
                 max_output_tokens=MAX_OUTPUT_TOKENS,
                 response_mime_type="application/json",
             ),
         )
-    except Exception as e:  # surface any SDK/API error to the caller
+    except Exception as e:
+        if openrouter.is_gemini_overloaded(e):
+            try:
+                text = openrouter.chat_completion(
+                    _openrouter_messages(system, history, message),
+                    temperature=TEMPERATURE,
+                    max_tokens=MAX_OUTPUT_TOKENS,
+                )
+            except Exception as fallback_e:
+                raise ChatError(
+                    f"the profile assistant failed: {e} "
+                    f"(OpenRouter fallback also failed: {fallback_e})"
+                ) from fallback_e
+            return _parse(text)
         raise ChatError(f"the profile assistant failed: {e}") from e
 
     text = (getattr(resp, "text", None) or "").strip()
@@ -93,6 +122,10 @@ def chat_turn(profile: Profile, history: list[dict], message: str) -> dict[str, 
 
 
 def _parse(text: str) -> dict[str, Any]:
+    # Gemini is constrained to raw JSON via response_mime_type, but the
+    # OpenRouter fallback isn't, and often wraps its reply in a ```json fence.
+    if text.startswith("```"):
+        text = text.strip("`").removeprefix("json").strip()
     try:
         data = json.loads(text)
     except json.JSONDecodeError as e:
