@@ -87,6 +87,13 @@ def _complete(model: str, messages: list[dict[str, str]], api_key: str, *,
                 "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
+                # The free-tier fallback models are reasoning models that,
+                # left on, spend the whole max_tokens budget thinking through
+                # a prompt this size (full CV + example letter + posting) and
+                # never reach the answer -- the cut-off chain-of-thought then
+                # comes back as "content" instead of a letter. We only want
+                # the final text, so reasoning is turned off outright.
+                "reasoning": {"enabled": False},
             },
             timeout=60,
         )
@@ -98,6 +105,10 @@ def _complete(model: str, messages: list[dict[str, str]], api_key: str, *,
 
     data = resp.json()
     try:
-        return data["choices"][0]["message"]["content"].strip()
+        choice = data["choices"][0]
+        content = choice["message"]["content"].strip()
     except (KeyError, IndexError, TypeError) as e:
         raise RuntimeError(f"unexpected response shape: {data}") from e
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError(f"response cut off at max_tokens ({max_tokens}) before finishing")
+    return content
