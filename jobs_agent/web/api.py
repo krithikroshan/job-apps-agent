@@ -112,6 +112,7 @@ def get_queue(store: Store, req: Request) -> Json:
         location=req.param("location").strip() or None,
         min_salary=req.float_param("min_salary"),
         max_salary=req.float_param("max_salary"),
+        contract_type=req.param("contract_type").strip() or None,
     )
     return Json([_row_to_dict(r) for r in rows])
 

@@ -241,6 +241,7 @@ async function loadQueue() {
   const location = el("f-location").value.trim();
   const minSalary = el("f-min-salary").value.trim();
   const maxSalary = el("f-max-salary").value.trim();
+  const contractType = el("f-contract-type").value;
   el("stage-title").textContent = STATUS_LABEL[stage];
   el("stage-count").textContent = "";
   el("results").innerHTML = `<p class="empty-line">Loading…</p>`;
@@ -249,6 +250,7 @@ async function loadQueue() {
   if (location) params.set("location", location);
   if (minSalary) params.set("min_salary", minSalary);
   if (maxSalary) params.set("max_salary", maxSalary);
+  if (contractType) params.set("contract_type", contractType);
   const res = await fetch(`/api/queue?${params}`);
   const rows = await res.json();
 
@@ -468,6 +470,7 @@ el("f-limit").addEventListener("change", () => { setMessage(""); loadQueue(); })
 el("f-min-score").addEventListener("change", () => { setMessage(""); loadQueue(); });
 el("f-min-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
 el("f-max-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
+el("f-contract-type").addEventListener("change", () => { setMessage(""); loadQueue(); });
 
 async function fetchListings() {
   const btn = el("btn-fetch");

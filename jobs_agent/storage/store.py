@@ -118,7 +118,8 @@ class Store:
     def queue(self, min_score: int = 0, limit: int = 50,
               status: str = "new", location: str | None = None,
               min_salary: float | None = None,
-              max_salary: float | None = None) -> Iterator[DictRow]:
+              max_salary: float | None = None,
+              contract_type: str | None = None) -> Iterator[DictRow]:
         query = """SELECT p.*, a.status, a.letter, a.notes, a.updated FROM postings p
                  JOIN applications a ON a.user_id = p.user_id AND a.posting_key = p.key
                  WHERE p.user_id = %s AND a.status = %s AND p.score >= %s"""
@@ -136,6 +137,9 @@ class Store:
         if max_salary is not None:
             query += " AND COALESCE(p.salary_min, p.salary_max) <= %s"
             params.append(max_salary)
+        if contract_type:
+            query += " AND p.contract_type = %s"
+            params.append(contract_type)
         query += " ORDER BY p.score DESC, p.first_seen DESC LIMIT %s"
         params.append(limit)
         yield from self.conn.execute(query, params)

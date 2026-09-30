@@ -75,6 +75,25 @@ def test_queue_filters_by_compensation_range(store):
     assert len(list(store.queue())) == 3
 
 
+def test_queue_filters_by_contract_type(store):
+    store.upsert([make_posting(
+        title="Compliance Analyst", description="Sanctions screening role.",
+        contract_type="permanent",
+    )])
+    store.upsert([make_posting(
+        title="Senior Compliance Manager", description="Leads the AML team.",
+        source_id="2", contract_type="contract",
+    )])
+    store.upsert([make_posting(
+        title="Paralegal", description="Bundling and disclosure work.",
+        source_id="3", contract_type=None,
+    )])
+
+    assert len(list(store.queue(contract_type="permanent"))) == 1
+    assert len(list(store.queue(contract_type="contract"))) == 1
+    assert len(list(store.queue())) == 3
+
+
 def test_delete_posting_removes_it_and_its_application(store):
     p = make_posting()
     store.upsert([p])
