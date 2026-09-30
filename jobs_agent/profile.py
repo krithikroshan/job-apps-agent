@@ -59,35 +59,10 @@ class Profile:
 DEFAULT_PROFILE = Profile(
     name="",
     location="London",
-    target_titles={
-        # Compliance / financial crime — best fit for the MSc Law and Finance,
-        # and the segment that pays above paralegal rates.
-        "compliance analyst": 30,
-        "compliance officer": 30,
-        "compliance associate": 30,
-        "compliance assistant": 26,
-        "compliance monitoring": 26,
-        "regulatory compliance": 28,
-        "financial crime": 28,
-        "aml analyst": 28,
-        "kyc analyst": 26,
-        "know your customer": 24,
-        "client onboarding": 22,
-        "regulatory reporting": 22,
-        "risk and compliance": 24,
-        # Legal support
-        "paralegal": 26,
-        "legal assistant": 22,
-        "legal analyst": 24,
-        "legal counsel assistant": 22,
-        "contracts administrator": 18,
-        "legal operations": 18,
-        "document review": 16,
-        # Graduate/entry framing
-        "legal intern": 20,
-        "graduate compliance": 26,
-        "trainee compliance": 26,
-    },
+    # Empty: there's no sensible default target title for an arbitrary
+    # candidate, and scoring hard-excludes anything that doesn't match one
+    # (see scoring.py), so this is set on the Profile page before first use.
+    target_titles={},
     domain_terms={
         "financial regulation": 12,
         "fca": 10,

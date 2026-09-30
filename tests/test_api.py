@@ -122,7 +122,7 @@ def test_only_editable_documents_are_writable(store):
 
 def test_get_profile_returns_editable_text(store):
     body = api.get_profile(store, api.Request()).body
-    assert "compliance analyst = 30" in body["target_titles"]
+    assert body["target_titles"] == ""
     assert "head of" in body["title_blockers"]
 
 

@@ -4,10 +4,20 @@ from datetime import date, timedelta
 
 from conftest import make_posting
 
-from jobs_agent.profile import DEFAULT_PROFILE
+from jobs_agent.profile import Profile
 from jobs_agent.scoring import score, score_all
 
-P = DEFAULT_PROFILE
+# A representative configured profile — DEFAULT_PROFILE ships with no target
+# titles (there's no sensible default for an arbitrary candidate), so the
+# scoring behavior below is exercised against a stand-in instead.
+P = Profile(
+    name="",
+    location="London",
+    target_titles={"compliance analyst": 30, "paralegal": 26, "kyc analyst": 26},
+    domain_terms={"fca": 10, "sanctions": 8, "due diligence": 8, "llb": 6, "graduate": 6},
+    title_blockers=["senior", "head of", "manager"],
+    experience_blockers=["5+ years"],
+)
 
 
 def test_title_blocker_excludes():
