@@ -75,6 +75,12 @@ def cmd_stats(args) -> None:
         print(f"{status:>12}  {count}")
 
 
+def cmd_gen_key(args) -> None:
+    from .crypto import ENV_VAR, generate_key
+
+    print(f"{ENV_VAR}={generate_key()}")
+
+
 def cmd_serve(args) -> None:
     from .web import serve
 
@@ -112,6 +118,9 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--no-browser", action="store_true",
                    help="don't auto-open the UI in a browser tab")
     w.set_defaults(func=cmd_serve)
+
+    k = sub.add_parser("gen-key", help="print a new APP_ENCRYPTION_KEY for .env")
+    k.set_defaults(func=cmd_gen_key)
 
     return ap
 

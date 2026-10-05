@@ -1,0 +1,44 @@
+/* Settings — the AI providers, one sheet each, stacked in the order they're
+ * tried. The rank number is real information: it's the fallback order. */
+
+.settings { display: flex; flex-direction: column; gap: var(--space-6); }
+.settings > * { max-width: 820px; }
+
+.providers { list-style: none; margin: 0; padding: 0;
+             background: var(--color-surface); border: 1px solid var(--color-divider);
+             border-radius: var(--radius-lg); overflow: hidden; }
+.provider { padding: 18px 20px; display: flex; flex-direction: column; gap: var(--space-3); }
+.provider + .provider { border-top: 1px solid var(--color-divider); }
+
+.provider-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.provider-rank {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: var(--color-neutral-700);
+  border: 1px solid var(--color-rule-strong); font-variant-numeric: tabular-nums;
+}
+.provider-logo { width: 22px; height: 22px; }
+.provider-head h2 { margin: 0; flex: 1; font-size: 16px; }
+.provider-status { font-size: 13px; color: var(--color-neutral-600);
+                   display: inline-flex; align-items: center; gap: 6px; }
+.provider-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%;
+                           background: var(--color-neutral-400); }
+.provider-status.ready { color: var(--color-accent-700); }
+.provider-status.ready::before { background: var(--color-accent); }
+.provider-move { display: flex; gap: 2px; }
+.provider-move .btn { padding: 4px 8px; color: var(--color-neutral-700); }
+
+.provider-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto auto;
+                gap: var(--space-2); align-items: center; }
+.provider-row:last-of-type { grid-template-columns: 56px minmax(0, 1fr); }
+.provider-row label { font-size: 13px; font-weight: 500; color: var(--color-neutral-700); }
+.provider-hint, .provider .saved-note, .key-link { margin-left: 64px; }
+.provider-hint { margin-top: 0; margin-bottom: 0; font-size: 13px; color: var(--color-neutral-600); }
+.provider .saved-note:empty { display: none; }
+.key-link { font-size: 13px; width: fit-content; }
+
+.save-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+  .provider-row, .provider-row:last-of-type { grid-template-columns: 1fr; }
+  .provider-hint, .provider .saved-note, .key-link { margin-left: 0; }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
+<title>Settings</title>
+<link rel="stylesheet" href="/static/ds-styles.css">
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="/static/settings.css">
+</head>
+<body>
+{nav}
+
+<div class="page settings">
+  <div class="page-head">
+    <h1>AI providers</h1>
+    <p>Cover letters and the profile assistant use the first provider that answers, in the
+      order below. If one fails or is busy, the next is tried. Keys are stored encrypted, and
+      only their last four characters are ever shown again.</p>
+  </div>
+
+  <div class="banner banner-error" id="no-storage">
+    <span class="dot"></span>
+    <span>This server can't store keys yet: <code>APP_ENCRYPTION_KEY</code> isn't set.
+      Providers with a server key still work.</span>
+  </div>
+
+  <ol class="providers" id="providers"></ol>
+
+  <div class="save-row">
+    <button class="btn btn-primary" id="btn-save-settings">Save order and models</button>
+    <span class="saved-note" id="settings-msg"></span>
+  </div>
+</div>
+
+<script src="/static/nav.js"></script>
+<script src="/static/settings.js"></script>
+</body>
+</html>

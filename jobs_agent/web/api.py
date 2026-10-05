@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..extract import CvExtractError, extract_cv_text
+from .. import llm
 from ..letters import DraftError, draft_letter, redraft_letter
 from ..pipeline import fetch_and_store_sync
 from ..presets import PRESETS, get_preset
@@ -214,6 +215,7 @@ def post_draft(store: Store, req: Request) -> Json:
 
     try:
         letter = draft_letter(
+            llm.for_user(store),
             title=posting["title"], employer=posting["employer"],
             location=posting["location"], description=posting["description"],
             cv=cv, template=template,
@@ -252,6 +254,7 @@ def post_redraft(store: Store, req: Request) -> Json:
 
     try:
         letter = redraft_letter(
+            llm.for_user(store),
             title=posting["title"], employer=posting["employer"],
             location=posting["location"], description=posting["description"],
             cv=cv, previous_letter=previous_letter, feedback=feedback,
@@ -345,7 +348,8 @@ def post_profile_chat(store: Store, req: Request) -> Json:
         draft = current  # a stale/bad pending proposal — fall back to what's saved
 
     try:
-        result = chat_turn(draft, req.payload.get("history") or [], message)
+        result = chat_turn(llm.for_user(store), draft,
+                           req.payload.get("history") or [], message)
     except ChatError as e:
         return error(str(e))
 

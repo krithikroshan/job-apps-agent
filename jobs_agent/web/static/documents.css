@@ -2,29 +2,24 @@
  * reads, and the scoring profile that decides what reaches the queue.
  */
 
-.profile {
-  display: flex; flex-direction: column; gap: var(--space-8);
-  max-width: 940px;
-}
-.profile:has(#panel-scoring:not([hidden])) { max-width: 1180px; }
+.profile { display: flex; flex-direction: column; gap: var(--space-8); }
 .panel { display: flex; flex-direction: column; gap: var(--space-8); }
 /* `display: flex` above would otherwise beat the hidden attribute's
    UA `display: none`, and both tabs would render at once. */
 .panel[hidden] { display: none; }
 
-/* — tabs — */
-.tabs { display: flex; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; }
+/* — tabs: index tabs on a ruled line — */
+.page-head { max-width: none; }
+.tabs { display: flex; gap: var(--space-6); margin-top: var(--space-4);
+        border-bottom: 1px solid var(--color-divider); }
 .tab {
-  font: inherit; font-size: 13px; cursor: pointer;
-  padding: 7px 14px; border-radius: 999px;
-  color: var(--color-text); background: none;
-  border: 1px solid var(--color-divider);
+  font: 500 14px/1.2 var(--font-body); cursor: pointer;
+  padding: 10px 2px; margin-bottom: -1px; background: none;
+  color: var(--color-neutral-700); border: 0; border-bottom: 2px solid transparent;
 }
-.tab:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
-.tab[aria-selected="true"] {
-  background: var(--color-accent-2-600); color: var(--color-bg);
-  border-color: transparent; font-weight: 600;
-}
+.tab:hover { color: var(--color-text); }
+.tab[aria-selected="true"] { color: var(--color-accent); border-bottom-color: var(--color-accent);
+                             font-weight: 600; }
 
 /* — a labelled section — */
 .block { display: flex; flex-direction: column; gap: var(--space-3); max-width: 700px; }
@@ -32,18 +27,8 @@
 .block h4 { margin: 0; }
 /* Headings and hints sit tight to each other, then the control gets air. */
 .block h4 + .hint, .block .block-label + .hint { margin-top: -8px; }
-.block-label {
-  font-size: 12px;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-.hint {
-  margin: 0; font-size: 13.5px; line-height: 1.55;
-  color: color-mix(in srgb, var(--color-text) 65%, transparent);
-}
-.hint code {
-  background: var(--color-surface); border-radius: 5px;
-  padding: 1px 6px; font-size: 12.5px;
-}
+.block-label { font-size: 13px; font-weight: 500; color: var(--color-neutral-700); }
+.hint { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--color-neutral-600); max-width: 72ch; }
 .save-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .save-row .saved-note { margin-left: var(--space-2); }
 
@@ -52,44 +37,36 @@
  * raw term lists read as data, on the palest neutral.
  */
 .prose-box, .mono-box {
-  width: 100%; border: 1px solid transparent; border-radius: 24px;
-  padding: 22px 24px; resize: vertical; color: var(--color-text);
+  width: 100%; border: 1px solid var(--color-divider); border-radius: var(--radius-lg);
+  padding: 18px 20px; resize: vertical; color: var(--color-text);
   caret-color: var(--color-accent);
 }
-.prose-box {
-  background: var(--color-surface);
-  font: 400 14px/1.6 var(--font-body);
-}
+.prose-box { background: var(--color-surface); font: 400 15px/1.7 var(--font-body); }
 .mono-box {
   background: var(--color-neutral-100);
-  font: 12.5px/1.6 ui-monospace, Menlo, Consolas, monospace;
-  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+  font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--color-neutral-800);
 }
-.prose-box:hover, .mono-box:hover { border-color: var(--color-divider); }
+.prose-box:hover, .mono-box:hover { border-color: var(--color-rule-strong); }
 .prose-box:focus-visible, .mono-box:focus-visible {
   border-color: var(--color-accent); outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 /* — the CV on file — */
 .cv-card {
-  display: flex; gap: var(--space-6); align-items: center;
-  background: var(--color-surface); border-radius: 32px;
-  padding: 22px 26px; max-width: 700px;
+  display: flex; gap: var(--space-4); align-items: center;
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg); padding: 16px 20px; max-width: 700px;
 }
 .cv-badge {
-  flex: none; width: 64px; height: 64px; border-radius: 50%;
-  background: var(--color-bg);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  flex: none; width: 44px; height: 54px; border-radius: 4px;
+  background: var(--color-accent-100); border: 1px solid var(--color-accent-200);
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7px;
+  font-size: 11px; font-weight: 700; color: var(--color-accent);
 }
 .cv-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .cv-file { font-size: 15px; font-weight: 600; }
-.cv-meta {
-  font-size: 12.5px; line-height: 1.5;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-}
-.cv-meta code { background: var(--color-bg); border-radius: 5px; padding: 1px 5px; }
+.cv-meta { font-size: 13px; line-height: 1.5; color: var(--color-neutral-600); }
 .cv-actions { display: flex; gap: var(--space-2); flex: none; }
 
 /* — scoring terms as chips — */
@@ -98,9 +75,10 @@
   display: inline-flex; align-items: center; gap: 6px;
   border-radius: 999px; font-size: 13px; padding: 5px 6px 5px 12px;
 }
-.chip-weighted { background: var(--color-surface); color: var(--color-text); }
+.chip-weighted { background: var(--color-surface); color: var(--color-text);
+                 box-shadow: inset 0 0 0 1px var(--color-divider); }
 .chip-blocker {
-  background: var(--color-neutral-100); color: var(--color-neutral-700);
+  background: var(--color-negative-100); color: var(--color-negative-700);
   padding: 4px 6px 4px 12px;
 }
 .chip-blocker .chip-term { text-decoration: line-through; }
@@ -124,7 +102,7 @@
 .chip-weight {
   font: inherit; font-size: 13px; font-weight: 700; text-align: center;
   width: 4.5ch; padding: 1px 4px; border: 0; border-radius: 999px;
-  background: var(--color-bg); color: inherit;
+  background: var(--color-accent-100); color: var(--color-accent-800);
   -moz-appearance: textfield;
 }
 .chip-weight::-webkit-outer-spin-button,
@@ -180,8 +158,8 @@
 
 .chat-card {
   display: flex; flex-direction: column; gap: var(--space-3);
-  background: var(--color-surface); border-radius: 24px;
-  padding: 20px 22px; position: sticky; top: var(--space-8);
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg); padding: 20px; position: sticky; top: var(--space-6);
 }
 .chat-card h4 { margin: 0; }
 .chat-card h5 { margin: 0; font-size: 13px; }
@@ -190,13 +168,13 @@
   display: flex; flex-direction: column; gap: var(--space-2);
   max-height: 360px; overflow-y: auto; padding-right: 2px;
 }
-.chat-msg { font-size: 13.5px; line-height: 1.5; padding: 8px 12px; border-radius: 16px; max-width: 92%; }
-.chat-msg-user { align-self: flex-end; background: var(--color-accent-2-600); color: var(--color-bg); }
+.chat-msg { font-size: 13.5px; line-height: 1.5; padding: 8px 12px; border-radius: 12px; max-width: 92%; }
+.chat-msg-user { align-self: flex-end; background: var(--color-accent); color: #fff; }
 .chat-msg-assistant { align-self: flex-start; background: var(--color-neutral-100); color: var(--color-text); }
 
 .chat-proposal {
   display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--color-bg); border-radius: 16px; padding: 14px 16px;
+  background: var(--color-accent-100); border-radius: var(--radius-md); padding: 14px 16px;
 }
 /* Same as .panel: `display: flex` would otherwise beat `hidden`. */
 .chat-proposal[hidden] { display: none; }
@@ -208,9 +186,9 @@
 
 .chat-input-row { display: flex; gap: var(--space-2); align-items: flex-end; }
 .chat-input-row textarea {
-  flex: 1; font: inherit; font-size: 13.5px; resize: vertical;
-  border-radius: 16px; border: 1px solid var(--color-divider);
-  padding: 8px 12px; background: var(--color-bg); color: var(--color-text);
+  flex: 1; font: inherit; font-family: var(--font-body); font-size: 13.5px; resize: vertical;
+  border-radius: var(--radius-md); border: 1px solid var(--color-rule-strong);
+  padding: 8px 12px; background: var(--color-surface); color: var(--color-text);
 }
 .chat-input-row textarea:focus-visible { outline: none; border-color: var(--color-accent); }
 
@@ -221,7 +199,7 @@
 
 @media (max-width: 760px) {
   .page { padding: 8px 20px 44px; }
-  .cv-card { flex-wrap: wrap; gap: var(--space-4); border-radius: 28px; }
+  .cv-card { flex-wrap: wrap; }
   .cv-actions { width: 100%; }
 }
 

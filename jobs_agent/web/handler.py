@@ -1,6 +1,6 @@
 """HTTP plumbing: route table, request parsing, response serialisation.
 
-Four pages:
+Five pages:
 
   /login       sign in with an existing account
   /signup      create an account
@@ -9,6 +9,8 @@ Four pages:
   /documents   Profile page — candidate name, CV (uploaded as .docx or .pdf,
                text extracted), cover-letter template, and the scoring
                profile, stored once and reused for every draft
+  /settings    AI providers — each user's own keys (stored encrypted), the
+               order they're tried in, and the model asked for at each
 
 Every page and API route except /login, /signup, and /static/* requires a
 signed-in session (see auth.py, backed by Supabase Auth) and operates on
@@ -23,18 +25,37 @@ tool ever submits anything itself; "submitted" just records that a human did
 so elsewhere, so it stops resurfacing in the queue.
 
 Stdlib only (http.server) beyond what fetch/queue/stats already need.
-Drafting additionally needs GEMINI_API_KEY set in the environment.
+Drafting additionally needs an AI provider key — the user's own, set on
+/settings, or the server's in the environment.
 """
 
 from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler
+from typing import Mapping
 from urllib.parse import parse_qs, urlparse
 
 from ..profile import load_profile
 from ..storage import DOC_CANDIDATE_NAME, open_store
-from . import api, auth, pages
+from . import api, api_settings, auth, pages
+
+def is_cross_site(headers: Mapping[str, str]) -> bool:
+    """True for a POST another site's page made the browser send.
+
+    The session cookies are SameSite=Lax, which already keeps them off
+    cross-site POSTs in current browsers; this is the second check, so a
+    forged request can't overwrite a stored API key even where that fails.
+    Requests with neither header (curl, tests) aren't from a browser page.
+    """
+    fetch_site = headers.get("Sec-Fetch-Site")
+    if fetch_site:
+        return fetch_site not in ("same-origin", "none")
+    origin = headers.get("Origin")
+    if origin is None:
+        return False
+    return urlparse(origin).netloc != headers.get("Host", "")
+
 
 #: path -> endpoint, per method. Adding an endpoint means one entry here and
 #: one function in api.py.
@@ -45,6 +66,7 @@ GET_ROUTES = {
     "/api/profile": api.get_profile,
     "/api/presets": api.get_presets,
     "/api/cv/file": api.get_cv_file,
+    "/api/llm/settings": api_settings.get_llm_settings,
 }
 
 POST_ROUTES = {
@@ -59,6 +81,10 @@ POST_ROUTES = {
     "/api/profile": api.post_profile,
     "/api/profile/reset": api.post_profile_reset,
     "/api/profile/chat": api.post_profile_chat,
+    "/api/llm/key": api_settings.post_llm_key,
+    "/api/llm/key/delete": api_settings.post_llm_key_delete,
+    "/api/llm/test": api_settings.post_llm_test,
+    "/api/llm/settings": api_settings.post_llm_settings,
 }
 
 
@@ -215,6 +241,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send_html(pages.documents_page(name), extra_headers)
             return
 
+        if path == "/settings":
+            with open_store(self.db, user_id=result.user_id) as store:
+                name = self._candidate_name(store)
+            self._send_html(pages.settings_page(name), extra_headers)
+            return
+
         endpoint = GET_ROUTES.get(path)
         if endpoint is None:
             self._not_found()
@@ -225,6 +257,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+        if is_cross_site(self.headers):
+            self._send_result(api.error("cross-site request refused", 403))
+            return
         payload = self._read_json()
 
         if path == "/api/signup":

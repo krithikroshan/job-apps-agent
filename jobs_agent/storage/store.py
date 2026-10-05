@@ -24,6 +24,7 @@ DOC_CV_FILENAME = "cv_filename"
 DOC_TEMPLATE = "cover_letter_template"
 DOC_CANDIDATE_NAME = "candidate_name"
 DOC_SCORING_PROFILE = "scoring_profile"
+DOC_LLM_SETTINGS = "llm_settings"
 
 
 class Store:
@@ -234,6 +235,41 @@ class Store:
                ON CONFLICT(user_id, id) DO UPDATE SET
                  filename=excluded.filename, data=excluded.data, updated=excluded.updated""",
             (self.user_id, file_id, filename, data, now),
+        )
+        self.conn.commit()
+
+    # -- user secrets (always ciphertext; see crypto.py) --------------------
+
+    def get_secret(self, provider: str) -> DictRow | None:
+        return self.conn.execute(
+            "SELECT provider, ciphertext, last4, updated FROM user_secrets "
+            "WHERE user_id=%s AND provider=%s",
+            (self.user_id, provider),
+        ).fetchone()
+
+    def list_secrets(self) -> list[DictRow]:
+        """Which providers have a key on file — without the ciphertext."""
+        return self.conn.execute(
+            "SELECT provider, last4, updated FROM user_secrets WHERE user_id=%s",
+            (self.user_id,),
+        ).fetchall()
+
+    def set_secret(self, provider: str, ciphertext: str, last4: str) -> None:
+        now = datetime.utcnow().isoformat()
+        self.conn.execute(
+            """INSERT INTO user_secrets (user_id, provider, ciphertext, last4, updated)
+               VALUES (%s, %s, %s, %s, %s)
+               ON CONFLICT(user_id, provider) DO UPDATE SET
+                 ciphertext=excluded.ciphertext, last4=excluded.last4,
+                 updated=excluded.updated""",
+            (self.user_id, provider, ciphertext, last4, now),
+        )
+        self.conn.commit()
+
+    def delete_secret(self, provider: str) -> None:
+        self.conn.execute(
+            "DELETE FROM user_secrets WHERE user_id=%s AND provider=%s",
+            (self.user_id, provider),
         )
         self.conn.commit()
 

@@ -3,32 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign up — Jobs Agent</title>
+<link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
+<title>Create an account — Jobs Agent</title>
 <link rel="stylesheet" href="/static/ds-styles.css">
 <link rel="stylesheet" href="/static/base.css">
 <link rel="stylesheet" href="/static/auth.css">
 </head>
 <body>
 <div class="auth-shell">
-  <div class="card elev-md auth-card">
-    <span class="nav-brand">Jobs Agent</span>
-    <h3>Create an account</h3>
-    <p class="hint">Your queue, CV, and scoring profile — private to your account.</p>
-    <form id="auth-form" data-mode="signup">
-      <div class="field">
-        <label for="email">Email</label>
-        <input class="input" id="email" name="email" type="email" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input class="input" id="password" name="password" type="password" required
-               minlength="6" autocomplete="new-password">
-      </div>
-      <button class="btn btn-primary btn-block" type="submit">Sign up</button>
-      <p class="auth-msg" id="auth-msg"></p>
-    </form>
-    <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
-  </div>
+  <aside class="auth-aside">
+    <a class="auth-brand" href="/login"><img src="/static/logo-mark.svg" alt="" width="32" height="32">Jobs Agent</a>
+    <div class="auth-pitch">
+      <h1>Find the roles worth applying for, and apply well.</h1>
+      <ol class="auth-steps">
+        <li><b>Fetch and score.</b> Postings from Reed and Adzuna, ranked against your CV and target roles.</li>
+        <li><b>Shortlist.</b> Tick the good ones, cross out the rest.</li>
+        <li><b>Draft and approve.</b> A cover letter in your own voice, which you read and edit before anything is sent.</li>
+      </ol>
+    </div>
+    <p class="auth-foot">Nothing is ever submitted for you.</p>
+  </aside>
+  <main class="auth-main">
+    <div class="auth-card">
+      <h2>Create an account</h2>
+      <p class="hint">Your queue, CV and letters are private to your account.</p>
+      <form id="auth-form" data-mode="signup">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" required
+                 minlength="6" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+        <p class="auth-msg" id="auth-msg" role="status" aria-live="polite"></p>
+      </form>
+      <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+  </main>
 </div>
 <script src="/static/auth.js"></script>
 </body>

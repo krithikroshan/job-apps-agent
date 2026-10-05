@@ -166,7 +166,7 @@ def test_reset_restores_the_defaults(store):
 
 # -- scoring profile chat --------------------------------------------------
 #
-# chat_turn talks to Gemini; every test here replaces it with a stub so
+# chat_turn talks to an AI provider; every test here replaces it with a stub so
 # nothing hits the network. The endpoint itself never saves anything — that
 # only happens if the caller then POSTs the returned "preview" to
 # /api/profile, same as it would a manual edit.
@@ -178,7 +178,7 @@ def test_chat_requires_a_message(store):
 
 def test_a_turn_with_no_proposal_returns_the_reply_only(store, monkeypatch):
     monkeypatch.setattr("jobs_agent.web.api.chat_turn",
-                        lambda profile, history, message: {
+                        lambda client, profile, history, message: {
                             "reply": "What seniority should I exclude?",
                             "proposal": None,
                         })
@@ -193,7 +193,7 @@ def test_a_turn_with_no_proposal_returns_the_reply_only(store, monkeypatch):
 
 def test_a_valid_proposal_returns_a_merged_preview(store, monkeypatch):
     monkeypatch.setattr("jobs_agent.web.api.chat_turn",
-                        lambda profile, history, message: {
+                        lambda client, profile, history, message: {
                             "reply": "Added it.",
                             "proposal": {"target_titles": {"aml analyst": 28}},
                         })
@@ -207,7 +207,7 @@ def test_a_valid_proposal_returns_a_merged_preview(store, monkeypatch):
 
 def test_an_invalid_proposal_degrades_to_a_reply(store, monkeypatch):
     monkeypatch.setattr("jobs_agent.web.api.chat_turn",
-                        lambda profile, history, message: {
+                        lambda client, profile, history, message: {
                             "reply": "Here you go.",
                             "proposal": {"target_titles": "not a mapping"},
                         })
@@ -221,7 +221,7 @@ def test_an_invalid_proposal_degrades_to_a_reply(store, monkeypatch):
 def test_pending_proposal_is_merged_into_the_draft_passed_to_the_model(store, monkeypatch):
     seen = {}
 
-    def fake_chat_turn(profile, history, message):
+    def fake_chat_turn(client, profile, history, message):
         seen["draft"] = profile
         return {"reply": "ok", "proposal": None}
 
@@ -238,7 +238,7 @@ def test_pending_proposal_is_merged_into_the_draft_passed_to_the_model(store, mo
 def test_a_chat_error_is_returned_as_a_400(store, monkeypatch):
     from jobs_agent.profile_chat import ChatError
 
-    def raise_it(profile, history, message):
+    def raise_it(client, profile, history, message):
         raise ChatError("GEMINI_API_KEY is not set")
 
     monkeypatch.setattr("jobs_agent.web.api.chat_turn", raise_it)

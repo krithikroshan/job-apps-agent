@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS applications (
 
 -- Candidate materials and settings, one row per (user, document id): 'cv'
 -- (extracted text), 'cv_filename', 'cover_letter_template', 'candidate_name',
--- and 'scoring_profile' (the JSON-encoded Profile). Small and few per user,
+-- 'scoring_profile' (the JSON-encoded Profile), and 'llm_settings' (AI
+-- provider order and model choices, JSON). Small and few per user,
 -- so no history — the UI overwrites in place.
 CREATE TABLE IF NOT EXISTS documents (
     user_id UUID NOT NULL,
@@ -62,4 +63,16 @@ CREATE TABLE IF NOT EXISTS files (
     data     BYTEA NOT NULL,
     updated  TEXT NOT NULL,
     PRIMARY KEY (user_id, id)
+);
+
+-- A user's own API keys for AI providers, one row per (user, provider).
+-- Only ever ciphertext (see crypto.py). ``last4`` is the one plaintext
+-- fragment kept, so the Settings page can say which key is on file.
+CREATE TABLE IF NOT EXISTS user_secrets (
+    user_id    UUID NOT NULL,
+    provider   TEXT NOT NULL,
+    ciphertext TEXT NOT NULL,
+    last4      TEXT NOT NULL,
+    updated    TEXT NOT NULL,
+    PRIMARY KEY (user_id, provider)
 );

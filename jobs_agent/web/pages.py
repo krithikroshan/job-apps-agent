@@ -17,12 +17,15 @@ CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".html": "text/html; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
 }
 
 #: Site navigation, as (path, label, page key).
 NAV_ITEMS = (
     ("/", "Queue", "queue"),
     ("/documents", "Profile", "documents"),
+    ("/settings", "Settings", "settings"),
 )
 
 
@@ -43,8 +46,11 @@ def nav(active: str, who: str = "", show_logout: bool = False) -> str:
     slug = f'<span class="nav-who">{escape(who)}</span>' if who else ""
     logout = ('<button class="btn btn-ghost" id="nav-logout" type="button">Log out</button>'
               if show_logout else "")
-    return ('<nav class="nav"><span class="nav-brand">Jobs Agent</span>'
-            + "".join(links) + slug + logout + "</nav>")
+    return ('<header class="topbar"><nav class="nav">'
+            '<a class="brand" href="/"><img src="/static/logo-mark.svg" alt="" '
+            'width="26" height="26">Jobs Agent</a>'
+            '<span class="nav-links">' + "".join(links) + "</span>"
+            '<span class="nav-end">' + slug + logout + "</span></nav></header>")
 
 
 def render(name: str, **fields: str) -> str:
@@ -65,6 +71,10 @@ def queue_page(candidate_name: str) -> str:
 
 def documents_page(candidate_name: str = "") -> str:
     return render("documents.html", nav=nav("documents", candidate_name, show_logout=True))
+
+
+def settings_page(candidate_name: str = "") -> str:
+    return render("settings.html", nav=nav("settings", candidate_name, show_logout=True))
 
 
 def login_page() -> str:

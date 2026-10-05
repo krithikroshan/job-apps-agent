@@ -1,4 +1,5 @@
-"""Conversational extraction of scoring-profile fields, against the Gemini API.
+"""Conversational extraction of scoring-profile fields, against whichever AI
+provider the user has set up.
 
 Turns a free-form description of the job the candidate wants into a proposed
 edit of the four Profile fields the Scoring profile tab edits. This module
@@ -10,18 +11,11 @@ written to the database.
 from __future__ import annotations
 
 import json
-import logging
-import os
 from typing import Any
 
-from .. import openrouter
-from ..config import gemini_model
+from ..llm import Client, LLMError, Message
 from ..profile import Profile
 from .prompts import system_instruction
-
-# google-genai logs an "AFC is not recommended" notice on every
-# generate_content call even when no tools are used; keep it off the console.
-logging.getLogger("google_genai").setLevel(logging.ERROR)
 
 TEMPERATURE = 0.4
 MAX_OUTPUT_TOKENS = 1024
@@ -32,39 +26,12 @@ PROPOSAL_FIELDS = WEIGHT_FIELDS + LIST_FIELDS
 
 
 class ChatError(RuntimeError):
-    """Raised when a chat turn can't be completed (missing key, API failure,
+    """Raised when a chat turn can't be completed (no provider, API failure,
     or a model reply that doesn't match the expected shape)."""
 
 
-def _client():
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise ChatError(
-            "GEMINI_API_KEY is not set — export it before using the profile assistant."
-        )
-    try:
-        from google import genai
-    except ImportError as e:
-        raise ChatError("the 'google-genai' package is not installed") from e
-    return genai.Client(api_key=api_key)
-
-
-def _contents(history: list[dict], message: str) -> list[dict]:
-    contents = []
-    for turn in history:
-        if not isinstance(turn, dict):
-            continue
-        text = str(turn.get("content", "")).strip()
-        if not text:
-            continue
-        role = "model" if turn.get("role") == "assistant" else "user"
-        contents.append({"role": role, "parts": [{"text": text}]})
-    contents.append({"role": "user", "parts": [{"text": message}]})
-    return contents
-
-
-def _openrouter_messages(system: str, history: list[dict], message: str) -> list[dict]:
-    messages = [{"role": "system", "content": system}]
+def _messages(history: list[dict], message: str) -> list[Message]:
+    out = []
     for turn in history:
         if not isinstance(turn, dict):
             continue
@@ -72,60 +39,36 @@ def _openrouter_messages(system: str, history: list[dict], message: str) -> list
         if not text:
             continue
         role = "assistant" if turn.get("role") == "assistant" else "user"
-        messages.append({"role": role, "content": text})
-    messages.append({"role": "user", "content": message})
-    return messages
+        out.append(Message(role, text))
+    out.append(Message("user", message))
+    return out
 
 
-def chat_turn(profile: Profile, history: list[dict], message: str) -> dict[str, Any]:
+def chat_turn(client: Client, profile: Profile, history: list[dict],
+              message: str) -> dict[str, Any]:
     """One turn of the profile chat.
 
     ``history`` is the prior turns as ``{"role": "user"|"assistant", "content":
     str}``, oldest first; ``message`` is the new user message, not yet in
     ``history``. Returns ``{"reply": str, "proposal": dict | None}``.
     """
-    client = _client()
-    from google.genai import types
-
-    system = system_instruction(profile)
     try:
-        resp = client.models.generate_content(
-            model=gemini_model(),
-            contents=_contents(history, message),
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                temperature=TEMPERATURE,
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-                response_mime_type="application/json",
-            ),
-        )
-    except Exception as e:
-        if openrouter.is_gemini_overloaded(e):
-            try:
-                text = openrouter.chat_completion(
-                    _openrouter_messages(system, history, message),
-                    temperature=TEMPERATURE,
-                    max_tokens=MAX_OUTPUT_TOKENS,
-                )
-            except Exception as fallback_e:
-                raise ChatError(
-                    f"the profile assistant failed: {e} "
-                    f"(OpenRouter fallback also failed: {fallback_e})"
-                ) from fallback_e
-            return _parse(text)
+        text = client.complete(system_instruction(profile), _messages(history, message),
+                               temperature=TEMPERATURE, max_tokens=MAX_OUTPUT_TOKENS,
+                               json_mode=True)
+    except LLMError as e:
         raise ChatError(f"the profile assistant failed: {e}") from e
-
-    text = (getattr(resp, "text", None) or "").strip()
-    if not text:
-        raise ChatError(f"the model returned no text{_finish_reason(resp)}")
     return _parse(text)
 
 
 def _parse(text: str) -> dict[str, Any]:
-    # Gemini is constrained to raw JSON via response_mime_type, but the
-    # OpenRouter fallback isn't, and often wraps its reply in a ```json fence.
-    if text.startswith("```"):
-        text = text.strip("`").removeprefix("json").strip()
+    # Gemini and OpenAI are constrained to raw JSON, but Claude and the
+    # OpenRouter models aren't: they may wrap it in a ```json fence or a
+    # sentence of preamble. The object is everything from the first "{" to
+    # the last "}".
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        text = text[start:end + 1]
     try:
         data = json.loads(text)
     except json.JSONDecodeError as e:
@@ -169,11 +112,3 @@ def _validate_proposal(proposal: Any) -> dict | None:
             raise ChatError(f"the model's {field} proposal wasn't a list of terms")
 
     return proposal or None
-
-
-def _finish_reason(resp) -> str:
-    """Best-effort ' (finish reason: ...)' suffix for an empty response."""
-    try:
-        return f" (finish reason: {resp.candidates[0].finish_reason})"
-    except (AttributeError, IndexError, TypeError):
-        return ""

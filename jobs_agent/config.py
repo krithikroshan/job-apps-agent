@@ -19,8 +19,9 @@ DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
 
 
 def gemini_model() -> str:
-    """Model used for drafting. Flash handles a one-page letter well and keeps
-    the per-application cost negligible; override with JOBS_AGENT_GEMINI_MODEL.
+    """Default Gemini model, when the user hasn't chosen one on the Settings
+    page. Flash handles a one-page letter well and keeps the per-application
+    cost negligible; override with JOBS_AGENT_GEMINI_MODEL.
 
     Read on each call rather than at import time, so it picks up whatever
     ``load_dotenv`` put in the environment regardless of import order.

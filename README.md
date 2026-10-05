@@ -22,8 +22,9 @@ cp .env.example .env    # then fill it in, or export the keys directly
 | `SUPABASE_PUBLISHABLE_KEY` | signup/login | Supabase project -> Settings -> API Keys -> Publishable key (the legacy `SUPABASE_ANON_KEY` also works) |
 | `REED_API_KEY` | fetching | https://www.reed.co.uk/developers/jobseeker |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | fetching | https://developer.adzuna.com/ |
-| `GEMINI_API_KEY` | drafting cover letters | https://aistudio.google.com/apikey |
-| `JOBS_AGENT_GEMINI_MODEL` | optional model override | defaults to `gemini-3.6-flash` |
+| `APP_ENCRYPTION_KEY` | users saving AI keys on /settings | `python -m jobs_agent gen-key` |
+| `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY` | optional server-wide AI keys, used by anyone without their own | each provider's console (linked from /settings) |
+| `JOBS_AGENT_GEMINI_MODEL` | optional default Gemini model | defaults to `gemini-3.6-flash` |
 
 Both job-board API keys are free — Reed's is issued instantly, Adzuna's takes
 a few minutes. Either board works on its own; a missing key skips that board
@@ -58,6 +59,17 @@ pages:
 - **Profile** (`/documents`) — your name, your CV, an example cover letter,
   and the scoring profile: a career preset to start from, where to search,
   and how postings are scored.
+- **Settings** (`/settings`) — AI providers (Gemini, OpenAI, Claude,
+  OpenRouter): your own API key for each, the order they're tried in, and
+  the model to use. "Test" checks a key by listing its models.
+
+**AI providers.** Cover letters and the profile assistant go through
+`jobs_agent/llm/`, which tries each provider the user has a key for, in
+their order, falling through to the next on any failure (bad key, outage,
+rate limit, a reply cut off mid-way). A user's own key wins over the
+server's. User keys are Fernet-encrypted under `APP_ENCRYPTION_KEY` in the
+`user_secrets` table and never returned by any endpoint — only their last
+four characters.
 
 **Presets and search area.** "Start from a preset" on the Scoring profile
 tab loads a complete profile for a field (`jobs_agent/presets/`) into the
@@ -96,7 +108,7 @@ new / shortlisted --[Prepare application]--> drafted --[Approve]--> approved --[
 ```
 
 "Prepare application" sends the posting plus your CV and example letter to
-Gemini, which writes a complete cover letter tailored to that posting in your
+your AI provider, which writes a complete cover letter tailored to that posting in your
 voice. The result lands in `drafted`, editable in place, with a feedback box
 that redrafts it. A posting can only be marked `submitted` once it is
 `approved` — the server rejects the request otherwise. Nothing in this tool
@@ -118,6 +130,8 @@ jobs_agent/
   storage/        schema.sql and the Postgres Store (every table user_id-scoped)
   extract/        .docx / .pdf -> plain text
   letters/        drafting prompts, and the model call that runs them
+  llm/            AI providers, per-user keys and settings, fallback client
+  crypto.py       encryption of stored secrets
   web/            server, route table, API endpoints, Supabase Auth (auth.py),
                   and static/ assets
 tests/            run with: python -m pytest

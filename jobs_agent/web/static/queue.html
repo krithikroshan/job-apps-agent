@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
 <title>Job Queue</title>
 <link rel="stylesheet" href="/static/ds-styles.css">
 <link rel="stylesheet" href="/static/base.css">
@@ -13,33 +14,25 @@
 
 <div class="queue">
   <aside class="rail">
-    <section>
-      <h6>Stage</h6>
-      <div class="stages" id="stages" role="tablist" aria-label="Application stage"></div>
-    </section>
+    <div class="stages" id="stages" role="tablist" aria-label="Application stage"></div>
 
-    <section class="filters">
+    <section class="filters" aria-labelledby="filters-title">
+      <h2 class="rail-title" id="filters-title">Filters</h2>
       <div class="field">
         <label for="f-location">Location</label>
         <input class="input" id="f-location" type="text" list="f-location-options"
                placeholder="Anywhere">
         <datalist id="f-location-options"></datalist>
       </div>
-      <div class="field">
-        <label for="f-limit">Show at most</label>
-        <input class="input" id="f-limit" type="number" value="50" min="1" step="1">
-      </div>
-      <div class="field">
-        <label for="f-min-score">Minimum score</label>
-        <input class="input" id="f-min-score" type="number" value="0" min="0" step="1">
-      </div>
-      <div class="field">
-        <label for="f-min-salary">Compensation from</label>
-        <input class="input" id="f-min-salary" type="number" min="0" step="1000" placeholder="£">
-      </div>
-      <div class="field">
-        <label for="f-max-salary">Compensation to</label>
-        <input class="input" id="f-max-salary" type="number" min="0" step="1000" placeholder="£">
+      <div class="field-pair">
+        <div class="field">
+          <label for="f-min-salary">Salary from</label>
+          <input class="input" id="f-min-salary" type="number" min="0" step="1000" placeholder="£">
+        </div>
+        <div class="field">
+          <label for="f-max-salary">to</label>
+          <input class="input" id="f-max-salary" type="number" min="0" step="1000" placeholder="£">
+        </div>
       </div>
       <div class="field">
         <label for="f-contract-type">Job type</label>
@@ -50,25 +43,44 @@
           <option value="temp">Temp</option>
         </select>
       </div>
+      <div class="field-pair">
+        <div class="field">
+          <label for="f-min-score">Minimum score</label>
+          <input class="input" id="f-min-score" type="number" value="0" min="0" step="1">
+        </div>
+        <div class="field">
+          <label for="f-limit">Show</label>
+          <input class="input" id="f-limit" type="number" value="50" min="1" step="1">
+        </div>
+      </div>
     </section>
 
-    <section class="rail-actions">
-      <button class="btn btn-primary btn-block" id="btn-fetch">Fetch new listings</button>
-      <button class="btn btn-secondary btn-block" id="btn-refresh">Refresh queue</button>
-      <p class="rail-note">Reed and Adzuna. Nothing is ever submitted for you.</p>
-    </section>
+    <p class="rail-note">Nothing here sends an application. You submit each one yourself,
+      after reading the letter.</p>
   </aside>
 
-  <div class="queue-main">
-    <div class="page-title">
-      <h2 id="stage-title">Queue</h2>
-      <span class="count" id="stage-count"></span>
+  <main class="queue-main">
+    <div class="queue-head">
+      <div class="queue-title">
+        <h1 id="stage-title">Queue</h1>
+        <p class="stage-count" id="stage-count"></p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-secondary" id="btn-refresh">Refresh</button>
+        <button class="btn btn-primary" id="btn-fetch">Fetch new listings</button>
+      </div>
     </div>
 
-    <div class="banner" id="status-msg"></div>
+    <div class="banner" id="status-msg" role="status" aria-live="polite"></div>
 
-    <main id="results"><p class="empty-line">Loading…</p></main>
-  </div>
+    <div class="ledger">
+      <div class="ledger-head" aria-hidden="true">
+        <span>Score</span><span>Role</span><span>Location</span>
+        <span class="num">Salary</span><span>Posted</span><span>Source</span><span></span>
+      </div>
+      <div id="results"><p class="empty-line">Loading…</p></div>
+    </div>
+  </main>
 </div>
 
 <script src="/static/nav.js"></script>

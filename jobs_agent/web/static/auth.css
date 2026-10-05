@@ -1,52 +1,43 @@
-/* Centered card for the signed-out /login and /signup pages. */
+/* Signed-out pages: the workflow on a ledger-green sheet, the form beside it. */
 
-body { min-height: 100vh; }
+.auth-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
 
-.auth-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
+.auth-aside {
+  display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-8);
+  padding: 40px 48px; color: #fff; background-color: var(--color-accent);
+  /* faint ruled lines, like the ledger page the app is named for */
+  background-image: repeating-linear-gradient(transparent 0 39px, rgb(255 255 255 / 0.07) 39px 40px);
 }
-
-.auth-card {
-  width: min(380px, 100%);
-  gap: var(--space-3);
+.auth-brand { display: inline-flex; align-items: center; gap: 12px; color: #fff;
+              text-decoration: none; font-weight: 700; font-size: 17px; }
+.auth-brand img { box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25); border-radius: 7px; }
+.auth-pitch h1 { font-size: 34px; line-height: 1.12; max-width: 15ch; margin: 0 0 var(--space-8); }
+.auth-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; max-width: 44ch;
+              display: flex; flex-direction: column; gap: var(--space-4); }
+.auth-steps li { counter-increment: step; position: relative; padding-left: 40px;
+                 color: rgb(255 255 255 / 0.82); line-height: 1.5; }
+.auth-steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 0;
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: var(--color-accent-900); background: var(--color-highlight);
 }
+.auth-steps b { color: #fff; font-weight: 600; }
+.auth-foot { margin: 0; font-size: 13px; color: rgb(255 255 255 / 0.7); }
 
-.auth-card .nav-brand {
-  font-size: 18px;
-}
+.auth-main { display: grid; place-items: center; padding: 40px 24px; }
+.auth-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: var(--space-3); }
+.auth-card h2 { margin: 0; }
+.auth-card .hint { margin: 0 0 var(--space-3); color: var(--color-neutral-600); }
+.auth-card form { display: flex; flex-direction: column; gap: var(--space-4); }
+.auth-card .btn-block { padding-block: 10px; }
+.auth-msg { margin: 0; font-size: 13.5px; min-height: 1.4em; color: var(--color-accent-700); }
+.auth-msg.err { color: var(--color-negative); }
+.auth-switch { margin: var(--space-2) 0 0; font-size: 14px; color: var(--color-neutral-600); }
 
-.auth-card h3 {
-  margin: 0 0 var(--space-1);
-}
-
-.auth-card p.hint {
-  margin: 0;
-  font-size: 13px;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-}
-
-.auth-card form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.auth-msg {
-  margin: 0;
-  font-size: 13px;
-  min-height: 1em;
-  color: var(--color-accent-2-700);
-}
-.auth-msg.err {
-  color: var(--color-accent-700);
-}
-
-.auth-switch {
-  margin: 0;
-  font-size: 13px;
-  text-align: center;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+@media (max-width: 860px) {
+  .auth-shell { grid-template-columns: 1fr; }
+  .auth-aside { padding: 24px 20px; gap: var(--space-4); }
+  .auth-pitch h1 { font-size: 24px; margin-bottom: var(--space-4); }
+  .auth-steps, .auth-foot { display: none; }
+  .auth-main { place-items: start center; padding-top: 32px; }
 }

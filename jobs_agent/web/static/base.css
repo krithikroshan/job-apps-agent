@@ -1,79 +1,69 @@
-/* App-level chrome shared by every page: the top nav, the status banner, and
- * the page shell. Built entirely from ds-styles.css tokens — no raw colours
- * here, so retuning the design system retunes the app.
+/* App-level chrome shared by every page: the top bar, the status banner,
+ * and the page shell. Built from ds-styles.css tokens only.
  */
 
 :root { color-scheme: light; }
-
 body { min-height: 100vh; }
 
-/* — top nav —
- * The design system's .nav, widened to the app's 32px page gutter and given
- * the candidate's name as a trailing, muted slug.
- */
+/* — top bar: one ruled line under it, like the head of a ledger page — */
+.topbar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-divider);
+}
 .nav {
-  gap: var(--space-6);
-  padding: 20px 32px;
+  max-width: 1320px; margin: 0 auto;
+  padding: 12px 32px; gap: var(--space-8);
 }
-.nav-brand { font-size: 20px; }
-.nav a { font-size: 14px; }
-.nav a[aria-current="page"] { font-weight: 600; }
-.nav-who {
-  font-size: 12px;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+.brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 700; font-size: 16px; letter-spacing: -0.01em;
 }
-.nav #nav-logout {
-  font-size: 12px;
-  padding: 4px calc(var(--space-2) * 1.2);
+.nav-links { display: flex; gap: var(--space-1); }
+.nav-links a {
+  padding: 6px 12px; border-radius: var(--radius-md);
+  color: var(--color-neutral-700); font-weight: 500;
 }
+.nav-links a:hover { color: var(--color-text); background: var(--color-neutral-200); }
+.nav-links a[aria-current="page"] { color: var(--color-accent); background: var(--color-accent-100); }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.nav-who { font-size: 13px; color: var(--color-neutral-600); }
+.nav #nav-logout { font-size: 13px; color: var(--color-neutral-700); }
 
 /* — page shell — */
-.page { padding: 8px 32px 44px; }
-.page-head {
-  display: flex; flex-direction: column; gap: var(--space-2);
-  max-width: 620px;
-}
-.page-head p { margin: 0; font-size: 15px; line-height: 1.55;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent); }
-.page-title { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-.page-title h2 { margin: 0; }
-.page-title .count {
-  font-size: 14px;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
+.page { max-width: 1320px; margin: 0 auto; padding: 28px 32px 56px; }
+.page-head { display: flex; flex-direction: column; gap: var(--space-2); max-width: 640px; }
+.page-head h2 { margin: 0; }
+.page-head p { margin: 0; color: var(--color-neutral-700); }
 
 /* — status banner —
- * Three treatments, one per kind of news: sage for something that finished,
- * accent for something still running, and a bordered neutral card for a
- * refusal, which gets a headline and an explanatory second line.
+ * Finished news in green, work in progress with a pulse, a refusal in red
+ * ink with its rule spelled out underneath.
  */
 .banner { display: none; }
 .banner.show {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: 14px 22px; border-radius: 999px;
-  font-size: 13.5px; line-height: 1.45;
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: 10px 14px; border-radius: var(--radius-md);
+  font-size: 14px; line-height: 1.45; border: 1px solid transparent;
 }
-.banner .dot {
-  width: 8px; height: 8px; border-radius: 50%; flex: none;
-}
-.banner-info { background: var(--color-accent-2-200); color: var(--color-accent-2-800); }
-.banner-info .dot { background: var(--color-accent-2-600); }
-.banner-progress { background: var(--color-accent-200); color: var(--color-accent-800); }
-.banner-progress .dot { background: var(--color-accent); }
-.banner-error.show {
-  align-items: flex-start;
-  padding: 16px 22px; border-radius: 24px;
-  background: var(--color-neutral-100);
-  border: 1px solid var(--color-divider);
-  color: var(--color-neutral-800);
-}
-.banner-error .dot { background: var(--color-accent-700); margin-top: 6px; }
-.banner-error b { font-weight: 700; }
-.banner-detail {
-  margin-top: 4px;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-}
+.banner .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 6px; }
+.banner-info { background: var(--color-accent-100); border-color: var(--color-accent-200);
+               color: var(--color-accent-800); }
+.banner-info .dot { background: var(--color-accent); }
+.banner-progress { background: var(--color-surface); border-color: var(--color-divider); }
+.banner-progress .dot { background: var(--color-accent); animation: pulse 1.2s ease-in-out infinite; }
+.banner-error { background: var(--color-negative-100); border-color: var(--color-negative-200);
+                color: var(--color-negative-700); }
+.banner-error .dot { background: var(--color-negative); }
+.banner-error b { font-weight: 600; }
+.banner-detail { margin-top: 2px; color: var(--color-neutral-700); }
+@keyframes pulse { 50% { opacity: 0.25; } }
 
 /* — inline save confirmations — */
-.saved-note { font-size: 13px; color: var(--color-accent-2-700); }
-.saved-note.err { color: var(--color-accent-700); white-space: pre-wrap; }
+.saved-note { font-size: 13px; color: var(--color-accent-700); }
+.saved-note.err { color: var(--color-negative); white-space: pre-wrap; }
+
+@media (max-width: 720px) {
+  .nav { padding: 10px 16px; gap: var(--space-3); flex-wrap: wrap; }
+  .nav-who { display: none; }
+  .page { padding: 20px 16px 48px; }
+}

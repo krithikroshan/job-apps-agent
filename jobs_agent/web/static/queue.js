@@ -6,17 +6,26 @@ const STATUS_LABEL = {
 };
 //: Stage order in the rail, and the order the rail is built in.
 const STAGES = ["new", "shortlisted", "drafted", "approved", "submitted", "rejected"];
-//: The forward path through the lifecycle, drawn as the dot track on a card.
-//: "rejected" is off to the side of it, so it gets a caption and no dots.
+//: The forward path through the lifecycle, drawn as steps in the rail.
+//: "rejected" sits apart from it.
 const PIPELINE = ["new", "shortlisted", "drafted", "approved", "submitted"];
-const TRACK_CAPTION = {
-  new: "Not reviewed yet",
-  shortlisted: "Shortlisted — draft when ready",
-  drafted: "Draft ready to review",
-  approved: "Approved — ready to submit",
-  submitted: "Submitted",
-  rejected: "Set aside",
+//: What each stage is for, under its heading.
+const STAGE_HINT = {
+  new: "Best match first. Shortlist the ones worth a letter.",
+  shortlisted: "Prepare an application to draft a letter for each.",
+  drafted: "Read each letter, edit it, then approve it.",
+  approved: "Submit each one on the employer's site.",
+  submitted: "",
+  rejected: "Reset one to bring it back to New.",
 };
+//: Scores at or above this get the highlighter: worth a look first.
+const STRONG_SCORE = 50;
+const SOURCES = {
+  reed: { label: "Reed", logo: "/static/logo-reed.png" },
+  adzuna: { label: "Adzuna", logo: "/static/logo-adzuna.png" },
+};
+//: How much of a description the expanded row shows.
+const DESCRIPTION_CHARS = 1400;
 //: How the heading counts what's on screen, as [singular, plural].
 const STAGE_COUNT = {
   new: ["posting scored and waiting", "postings scored and waiting"],
@@ -82,8 +91,9 @@ function renderStages(stats) {
   stageTotals = stats;
   totalPostings = STAGES.reduce((sum, key) => sum + (stats[key] || 0), 0);
   el("stages").innerHTML = STAGES.map((key) => `
-    <button class="stage" role="tab" data-stage="${key}"
-            aria-selected="${key === stage}">
+    <button class="stage${key === "rejected" ? " stage-aside" : ""}" role="tab"
+            data-stage="${key}" aria-selected="${key === stage}">
+      <span class="step" aria-hidden="true"></span>
       <span class="name">${STATUS_LABEL[key]}</span>
       <span class="n">${stats[key] || 0}</span>
     </button>`).join("");
@@ -96,12 +106,90 @@ async function loadStats() {
 
 /* — a posting — */
 
-function salaryText(row) {
-  if (!row.salary_min) return "salary not stated";
-  const min = Math.round(row.salary_min).toLocaleString();
-  return row.salary_max
-    ? `£${min}–£${Math.round(row.salary_max).toLocaleString()}`
-    : `£${min}+`;
+/* Salaries as an accountant would jot them: £35k, £27.5k. */
+function money(n) {
+  return n >= 1000 ? `£${+(n / 1000).toFixed(1)}k` : `£${Math.round(n)}`;
+}
+
+function salaryCell(row) {
+  if (!row.salary_min) return `<span class="muted">Not stated</span>`;
+  return row.salary_max && row.salary_max !== row.salary_min
+    ? `${money(row.salary_min)}<span class="muted">–</span>${money(row.salary_max)}`
+    : money(row.salary_min);
+}
+
+/* "posted" is a YYYY-MM-DD date with no time, so age is counted in days. */
+function postedAgo(iso) {
+  if (!iso) return `<span class="muted">Unknown</span>`;
+  const days = Math.floor((Date.now() - new Date(iso + "T00:00:00").getTime()) / 86400000);
+  if (!Number.isFinite(days) || days < 0) return escapeHtml(iso);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 14) return `${days} days ago`;
+  return `${Math.round(days / 7)} weeks ago`;
+}
+
+/* Reed often gives a bare postcode ("SM26SP"); put its space back. */
+function placeName(location) {
+  if (!location) return `<span class="muted">Unknown</span>`;
+  const postcode = location.trim().match(/^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/i);
+  return escapeHtml(postcode ? `${postcode[1]} ${postcode[2]}`.toUpperCase() : location);
+}
+
+function sourceMark(source) {
+  const known = SOURCES[source];
+  if (!known) return `<span class="muted">${escapeHtml(source || "")}</span>`;
+  return `<img class="source-logo" src="${known.logo}" alt="${known.label}"
+               title="Found on ${known.label}" width="20" height="20">`;
+}
+
+/* Scoring stores its reasons as one " | "-joined string of entries like
+ * "title 'audit trainee' (+28)". Each becomes a ledger line: what it was,
+ * and what it added or took away. */
+function scoreLines(reasons) {
+  return String(reasons || "").split(" | ").filter(Boolean).map((raw) => {
+    const m = raw.match(/^(.*?)\s*\(([+-]\d+)\)\s*$/);
+    const text = m ? m[1] : raw;
+    const points = m ? Number(m[2]) : null;
+    const title = text.match(/^title '(.*)'$/);
+    const label = title ? `Title matches “${title[1]}”`
+      : text === "domain terms" ? "Matches your field's keywords"
+      : text === "contract/temp" ? "Contract or temp role"
+      : text === "salary stated" ? "Salary is stated"
+      : text.startsWith("no title match") ? "No target title, kept for its keywords"
+      : text.replace(/^salary >= /, "Salary from £").replace(/^salary < /, "Salary under £")
+            .replace(/^posted <= (\d+) days$/, "Posted in the last $1 days")
+            .replace(/^posted > (\d+) days$/, "Posted over $1 days ago");
+    return { label, points };
+  });
+}
+
+function breakdown(row) {
+  const lines = scoreLines(row.score_reasons).map(({ label, points }) => `
+    <li class="${points == null ? "note" : points < 0 ? "minus" : "plus"}">
+      <span>${escapeHtml(label)}</span>
+      <span class="pts">${points == null ? "" : points > 0 ? `+${points}` : `−${-points}`}</span>
+    </li>`).join("");
+  return `
+    <aside class="breakdown" aria-label="How this posting was scored">
+      <h3>Why it scored ${row.score}</h3>
+      <ul>${lines}</ul>
+      <div class="total"><span>Score</span><span class="pts">${row.score}</span></div>
+    </aside>`;
+}
+
+function description(row) {
+  const text = String(row.description || "").trim();
+  const clipped = text.length > DESCRIPTION_CHARS
+    ? text.slice(0, DESCRIPTION_CHARS).replace(/\s+\S*$/, "") + "…" : text;
+  const source = (SOURCES[row.source] || {}).label || "the job board";
+  return `
+    <div class="desc">
+      <h3>About the role</h3>
+      ${clipped ? `<p>${escapeHtml(clipped)}</p>` : `<p class="muted">No description was given.</p>`}
+      ${row.url ? `<a class="listing-link" href="${escapeHtml(row.url)}" target="_blank"
+                     rel="noopener">Read the full listing on ${escapeHtml(source)}</a>` : ""}
+    </div>`;
 }
 
 /* The store writes `updated` as a naive UTC isoformat with no offset, which
@@ -119,36 +207,23 @@ function editedAgo(iso) {
   return `edited ${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function track(status) {
-  const caption = `<span class="caption">${TRACK_CAPTION[status]}</span>`;
-  if (status === "rejected") return `<div class="track">${caption}</div>`;
-  const at = PIPELINE.indexOf(status);
-  const parts = [];
-  PIPELINE.forEach((_, i) => {
-    if (i) parts.push(`<span class="l${i <= at ? " done" : ""}"></span>`);
-    const state = i < at ? " done" : i === at ? " now" : "";
-    parts.push(`<span class="d${state}"></span>`);
-  });
-  return `<div class="track">${parts.join("")}${caption}</div>`;
-}
-
 function letterBox(row, open) {
   return `
     <details class="letter-box"${open ? " open" : ""}>
       <summary>
-        <span class="when-closed btn btn-secondary">Read letter</span>
-        <span class="when-open kicker">Cover letter</span>
+        <span class="when-closed btn btn-secondary btn-sm">Read the letter</span>
+        <span class="when-open letter-title">Cover letter</span>
         <span class="when-open letter-when">${escapeHtml(editedAgo(row.updated))}</span>
       </summary>
       <div class="letter-body">
         <textarea class="letter-text" data-letter-key="${escapeHtml(row.key)}"
                   aria-label="Cover letter">${escapeHtml(row.letter || "")}</textarea>
         <input class="input" type="text" data-feedback-key="${escapeHtml(row.key)}"
-               placeholder="What should change? e.g. lead with the clerkship instead"
+               placeholder="What should change? e.g. open with the audit internship"
                aria-label="Redraft feedback">
         <div class="letter-actions">
-          <button class="btn btn-secondary" data-redraft-key="${escapeHtml(row.key)}">Redraft with feedback</button>
-          <button class="btn btn-ghost" data-save-key="${escapeHtml(row.key)}">Save edits</button>
+          <button class="btn btn-secondary btn-sm" data-redraft-key="${escapeHtml(row.key)}">Redraft with feedback</button>
+          <button class="btn btn-ghost btn-sm" data-save-key="${escapeHtml(row.key)}">Save edits</button>
           <span class="saved-note" data-saved-for="${escapeHtml(row.key)}" hidden>Saved.</span>
         </div>
       </div>
@@ -178,39 +253,50 @@ function card(row, open) {
   }
   if (status === "approved") actions.push(btn("submit", "Submit application"));
   for (const [next, label] of TRANSITIONS[status] || []) {
-    const primary = lead === next ? "btn-primary" : "btn-secondary";
-    actions.push(`<button class="btn ${primary}" data-key="${key}" data-status="${next}">${label}</button>`);
-  }
-  actions.push(`<button class="btn btn-ghost" data-delete-key="${key}">Delete</button>`);
-  if (url) {
-    actions.push(`<a class="open-listing" href="${url}" target="_blank" rel="noopener">Open listing ↗</a>`);
+    const kind = lead === next ? "btn-primary" : next === "rejected" ? "btn-danger" : "btn-secondary";
+    actions.push(`<button class="btn ${kind}" data-key="${key}" data-status="${next}">${label}</button>`);
   }
 
-  const reasons = [
-    `score ${row.score}`,
-    escapeHtml(row.source || ""),
-    escapeHtml(row.score_reasons || ""),
-  ].filter(Boolean).join(" · ");
+  // In New, triage happens from the row itself: tick to shortlist, cross to
+  // set aside, without opening anything.
+  const quick = status === "new" ? `
+      <span class="quick">
+        <button class="btn btn-icon quick-yes" data-key="${key}" data-status="shortlisted"
+                aria-label="Shortlist ${escapeHtml(row.title)}" title="Shortlist">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn btn-icon quick-no" data-key="${key}" data-status="rejected"
+                aria-label="Reject ${escapeHtml(row.title)}" title="Reject">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </span>` : `<span class="quick"></span>`;
 
+  const strength = row.score >= STRONG_SCORE ? " strong" : row.score < 25 ? " weak" : "";
+  const kind = row.contract_type && row.contract_type !== "permanent"
+    ? `<span class="tag tag-neutral">${escapeHtml(row.contract_type[0].toUpperCase() + row.contract_type.slice(1))}</span>` : "";
   const hasLetter = HAS_LETTER_BOX.has(status);
   return `
-    <article class="job${hasLetter && open ? " is-open" : ""}" data-row="${key}">
-      <div class="job-head">
-        <div class="job-tagline">
-          <span class="tag tag-status-${status}">${STATUS_LABEL[status]}</span>
-          <span class="job-posted">posted ${escapeHtml(row.posted || "date unknown")}</span>
+    <article class="job${open ? " is-open" : ""}" data-row="${key}">
+      <div class="job-row" data-toggle="${key}">
+        <span class="score${strength}"><span>${row.score}</span></span>
+        <div class="role">
+          <button class="title" data-toggle="${key}" aria-expanded="${open}">${escapeHtml(row.title)}</button>
+          <span class="employer"><span class="employer-name">${escapeHtml(row.employer || "Employer not named")}</span>${kind}</span>
         </div>
-        <h3>${url
-          ? `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(row.title)}</a>`
-          : escapeHtml(row.title)}</h3>
-        <div class="job-meta">${escapeHtml(row.employer || "unknown employer")} · ${
-          escapeHtml(row.location || "location unknown")} · ${
-          escapeHtml(row.contract_type || "type n/a")} · ${salaryText(row)}</div>
-        <div class="job-reasons">${reasons}</div>
-        ${track(status)}
+        <span class="loc">${placeName(row.location)}</span>
+        <span class="pay">${salaryCell(row)}</span>
+        <span class="age">${postedAgo(row.posted)}</span>
+        <span class="src">${sourceMark(row.source)}</span>
+        ${quick}
       </div>
-      ${hasLetter ? letterBox(row, open) : ""}
-      <div class="job-actions">${actions.join("")}</div>
+      <div class="job-detail">
+        ${hasLetter ? letterBox(row, true) : ""}
+        <div class="detail-grid">${description(row)}${breakdown(row)}</div>
+        <div class="job-actions">
+          ${actions.join("")}
+          <button class="btn btn-danger del" data-delete-key="${key}">Delete</button>
+        </div>
+      </div>
     </article>`;
 }
 
@@ -220,14 +306,14 @@ function card(row, open) {
  */
 function emptyState() {
   if (totalPostings) {
-    return `<p class="empty-line">No postings in ${STATUS_LABEL[stage]} match these filters.</p>`;
+    return `<p class="empty-line">Nothing in ${STATUS_LABEL[stage]} matches these filters.</p>`;
   }
   return `
     <div class="empty-state">
-      <div class="orb"></div>
-      <h2>Nothing in the queue yet</h2>
-      <p>Fetching pulls postings matching your target titles from Reed and Adzuna,
-         scores them against your profile, and drops duplicates. It takes about a minute.</p>
+      <img src="/static/logo-mark.svg" alt="" width="48" height="48">
+      <h2>Your queue is empty</h2>
+      <p>Fetching searches Reed and Adzuna for your target titles, scores every
+         posting against your profile, and drops duplicates. It takes under a minute.</p>
       <div class="row">
         <button class="btn btn-primary" data-empty-fetch>Fetch new listings</button>
         <a class="btn btn-ghost" href="/documents#scoring">Check your scoring profile first</a>
@@ -243,7 +329,7 @@ async function loadQueue() {
   const maxSalary = el("f-max-salary").value.trim();
   const contractType = el("f-contract-type").value;
   el("stage-title").textContent = STATUS_LABEL[stage];
-  el("stage-count").textContent = "";
+  el("stage-count").textContent = STAGE_HINT[stage];
   el("results").innerHTML = `<p class="empty-line">Loading…</p>`;
 
   const params = new URLSearchParams({ status: stage, limit, min_score: minScore });
@@ -259,7 +345,7 @@ async function loadQueue() {
   const [one, many] = STAGE_COUNT[stage];
   const total = stageTotals[stage] || 0;
   const shown = rows.length < total ? `${rows.length} of ${total}` : String(rows.length);
-  el("stage-count").textContent = `${shown} ${rows.length === 1 ? one : many}`;
+  el("stage-count").textContent = `${shown} ${rows.length === 1 ? one : many}. ${STAGE_HINT[stage]}`;
 
   if (!rows.length) {
     el("results").innerHTML = emptyState();
@@ -273,7 +359,7 @@ async function loadQueue() {
     if (open) opened = true;
     return card(row, open);
   }).join("");
-  el("results").querySelectorAll(".letter-box[open] .letter-text").forEach(autoExpand);
+  el("results").querySelectorAll(".job.is-open .letter-box[open] .letter-text").forEach(autoExpand);
 }
 
 function autoExpand(ta) {
@@ -316,10 +402,16 @@ el("results").addEventListener("input", (ev) => {
 
 el("results").addEventListener("toggle", (ev) => {
   if (!ev.target.matches(".letter-box")) return;
-  const job = ev.target.closest(".job");
-  if (job) job.classList.toggle("is-open", ev.target.open);
   if (ev.target.open) ev.target.querySelectorAll(".letter-text").forEach(autoExpand);
 }, true);
+
+/* A row opens and closes from its title, or from anywhere on the row that
+ * isn't its own control or link. */
+function toggleRow(job) {
+  const open = job.classList.toggle("is-open");
+  job.querySelector(".title").setAttribute("aria-expanded", String(open));
+  if (open) job.querySelectorAll(".letter-box[open] .letter-text").forEach(autoExpand);
+}
 
 el("results").addEventListener("click", async (ev) => {
   const statusBtn = ev.target.closest("button[data-key]");
@@ -332,6 +424,13 @@ el("results").addEventListener("click", async (ev) => {
 
   if (emptyFetch) {
     fetchListings();
+    return;
+  }
+
+  const toggle = ev.target.closest("[data-toggle]");
+  const control = ev.target.closest("button:not(.title), a, input, textarea, summary");
+  if (toggle && !control) {
+    toggleRow(toggle.closest(".job"));
     return;
   }
 
@@ -493,7 +592,7 @@ el("f-contract-type").addEventListener("change", () => { setMessage(""); loadQue
 async function fetchListings() {
   const btn = el("btn-fetch");
   btn.disabled = true;
-  setMessage("Fetching from Reed and Adzuna — this can take a minute…", "progress");
+  setMessage("Searching Reed and Adzuna for new postings…", "progress");
   try {
     const res = await fetch("/api/fetch", { method: "POST" });
     const data = await res.json();
@@ -504,7 +603,7 @@ async function fetchListings() {
         ? ` Note: ${data.warnings.join("; ")}.`
         : "";
       setMessage(
-        `Fetched ${data.raw} postings, ${data.kept} passed filters — ${data.new} new, ${data.duplicates} duplicates suppressed.${skipped}`,
+        `Found ${data.raw} postings. ${data.kept} matched your profile: ${data.new} new, ${data.duplicates} already seen.${skipped}`,
         "info",
       );
       await reload();
