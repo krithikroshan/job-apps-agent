@@ -16,6 +16,7 @@ from ..base import (
 BASE = "https://api.anthropic.com/v1"
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5-5"
+FAST_MODEL = "claude-haiku-4-5"
 
 
 def _headers(key: str) -> dict[str, str]:
@@ -58,6 +59,7 @@ SPEC = ProviderSpec(
     label="Claude (Anthropic)",
     env_vars=("ANTHROPIC_API_KEY",),
     default_model=lambda: DEFAULT_MODEL,
+    fast_model=lambda: FAST_MODEL,
     key_url="https://console.anthropic.com/settings/keys",
     complete=complete,
     list_models=list_models,

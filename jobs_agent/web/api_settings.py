@@ -40,6 +40,7 @@ def get_llm_settings(store: Store, req: Request) -> Json:
             "has_server_key": server_key(spec.id) is not None,
             "model": settings.models.get(spec.id, ""),
             "default_model": spec.default_model(),
+            "fast_model": spec.fast_model(),
         }
         for spec in registry.PROVIDERS.values()
     ]

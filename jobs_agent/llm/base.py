@@ -60,6 +60,9 @@ class ProviderSpec:
     #: Server-side environment variables holding a fallback key, in order.
     env_vars: tuple[str, ...]
     default_model: Callable[[], str]
+    #: The cheap, quick model for bulk work (analysing postings), whatever
+    #: the user picked for letters.
+    fast_model: Callable[[], str]
     #: Where a user gets a key.
     key_url: str
     complete: Callable[[str, str, Prompt], str]

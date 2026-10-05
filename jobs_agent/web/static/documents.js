@@ -476,6 +476,36 @@ async function sendChat() {
   }
 }
 
+/* Suggestions arrive like an assistant turn: a reply, and a proposal in the
+ * same preview box the chat uses, so applying one is the same click. */
+document.querySelectorAll("[data-suggest]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const buttons = document.querySelectorAll("[data-suggest]");
+    buttons.forEach((b) => { b.disabled = true; });
+    setMsg("chat-msg", btn.dataset.suggest === "cv"
+      ? "Reading your CV…" : "Looking at what you've shortlisted and rejected…");
+    try {
+      const res = await fetch("/api/suggest/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: btn.dataset.suggest }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setMsg("chat-msg", data.error || "Couldn't make a suggestion.", true);
+      setMsg("chat-msg", "");
+      chatHistory.push({ role: "assistant", content: data.reply });
+      renderChatLog();
+      pendingProposal = data.proposal || null;
+      pendingPreview = data.preview || null;
+      renderProposal();
+    } catch {
+      setMsg("chat-msg", "Couldn't make a suggestion.", true);
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; });
+    }
+  });
+});
+
 el("chat-send").addEventListener("click", sendChat);
 el("chat-input").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && !ev.shiftKey) {

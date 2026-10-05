@@ -63,6 +63,23 @@ pages:
   OpenRouter): your own API key for each, the order they're tried in, and
   the model to use. "Test" checks a key by listing its models.
 
+**AI analysis.** After a fetch, the queue page has the AI read the top 150
+postings by keyword score, six per request (`jobs_agent/analysis/`), against
+the CV and target roles. For each it records the level and years asked for,
+whether it's a graduate scheme, the qualifications required, study support,
+what it says about visa sponsorship (with the sentence it came from — a quote
+that isn't actually in the advert is thrown out), the closing date, a 0-100
+fit with reasons and gaps, and red flags. Rows are ranked by **Match**: 40%
+keyword score, 60% AI fit (keyword score alone until a posting is read).
+Filters for visa, level, years, graduate schemes, study support and red
+flags read these results. Analysis uses each provider's fast model, and only
+re-runs when the CV, target titles or locations change.
+
+**Suggestions.** The Profile page can suggest a scoring profile from the CV,
+or from what's been shortlisted and rejected; the queue's search box turns a
+plain-English request into its filters. Both are previews: nothing changes
+until it's applied.
+
 **AI providers.** Cover letters and the profile assistant go through
 `jobs_agent/llm/`, which tries each provider the user has a key for, in
 their order, falling through to the next on any failure (bad key, outage,
@@ -131,6 +148,8 @@ jobs_agent/
   extract/        .docx / .pdf -> plain text
   letters/        drafting prompts, and the model call that runs them
   llm/            AI providers, per-user keys and settings, fallback client
+  analysis/       AI reading of postings: prompt, output checks, batch runner
+  suggest/        profile suggestions and plain-English search
   crypto.py       encryption of stored secrets
   web/            server, route table, API endpoints, Supabase Auth (auth.py),
                   and static/ assets
@@ -149,11 +168,12 @@ break on every layout change, and force regex parsing of salary out of HTML.
 Between them these two APIs cover most agency-posted London contract listings.
 LinkedIn stays a manual channel.
 
-**Deterministic scoring, not an LLM.** Every score carries its reasons, so when
-something irrelevant ranks high you can see which weight caused it and fix it
-on the Profile page. That is not true of a model call, and at ingestion volume
-the model calls would cost more than they're worth. Save the model for the
-letters.
+**Deterministic scoring first, an LLM second.** Every keyword score carries its
+reasons, so when something irrelevant ranks high you can see which weight
+caused it and fix it on the Profile page. Keyword scoring runs on everything
+fetched, for free, and drops the obvious misses; only the top 150 survivors
+are sent to a model, whose structured reading (not a bare number) is shown
+next to the keyword breakdown, so the Match score stays explainable.
 
 **Aggressive deduplication.** The same contract role is routinely posted by
 four agencies under three titles. Identity is built from the normalised title,

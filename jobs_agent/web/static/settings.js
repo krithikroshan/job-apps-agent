@@ -71,6 +71,8 @@ function card(p, rank) {
       </div>
       ${serverOnly ? `<p class="provider-hint">The server's key always uses the default
         model. Add your own key to choose a different one.</p>` : ""}
+      <p class="provider-hint">Reading job postings always uses
+        ${p.fast_model ? escapeHtml(p.fast_model) : "the free models"}, to keep the cost down.</p>
       <span class="saved-note" data-note></span>
       <a class="key-link" href="${escapeHtml(p.key_url)}" target="_blank" rel="noopener noreferrer">Get a ${escapeHtml(p.label)} key</a>
     </li>`;

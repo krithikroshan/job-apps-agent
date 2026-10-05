@@ -59,7 +59,7 @@ def cmd_queue(args) -> None:
         print("Queue empty.")
         return
     for r in rows:
-        print(f"\n[{r['score']:>3}] {r['title']}")
+        print(f"\n[{r['match']:>3}] {r['title']}")
         print(f"      {r['employer']}  ·  {r['location']}  ·  {r['contract_type'] or 'n/a'}")
         sal = (f"£{r['salary_min']:,.0f}" if r["salary_min"] else "not stated")
         print(f"      salary {sal}  ·  posted {r['posted'] or '?'}  ·  {r['source']}")
@@ -101,7 +101,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = sub.add_parser("queue", help="print the review queue")
     q.add_argument("--user", required=True, help="Supabase Auth user id whose queue to print")
-    q.add_argument("--min-score", type=int, default=30)
+    q.add_argument("--min-score", type=int, default=30,
+                   help="minimum Match, 0-100: keyword score blended with AI fit")
     q.add_argument("--limit", type=int, default=25)
     q.add_argument("--status", default="new")
     q.add_argument("--location", default="",

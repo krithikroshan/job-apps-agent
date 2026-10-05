@@ -177,3 +177,32 @@ def test_consecutive_same_role_messages_are_merged(store, monkeypatch):
         "sys", [Message("user", "a"), Message("user", "b"), Message("assistant", "c")],
         temperature=0.5, max_tokens=10)
     assert seen == [[("user", "a\n\nb"), ("assistant", "c")]]
+
+
+def test_analysis_always_uses_each_providers_fast_model(store, calls):
+    keys.save_user_key(store, "anthropic", "anthropic-key-0001")
+    save_settings(store, LLMSettings(order=("anthropic",), models={"anthropic": "claude-opus-x"}))
+    client_mod.for_user(store, fast=True).complete(
+        "sys", [Message("user", "hi")], temperature=0.2, max_tokens=10)
+    assert calls["seen"][0][2] == registry.PROVIDERS["anthropic"].fast_model()
+
+
+def test_complete_with_source_names_the_provider_and_model(store, calls):
+    keys.save_user_key(store, "openai", "openai-key-00000001")
+    text, source = client_mod.for_user(store).complete_with_source(
+        "sys", [Message("user", "hi")], temperature=0.2, max_tokens=10)
+    assert text == "from openai"
+    assert source == f"OpenAI ({registry.PROVIDERS['openai'].default_model()})"
+
+
+@pytest.mark.parametrize("failure", [
+    "503 This model is currently experiencing high demand",
+    "429 rate limited", "timed out", "couldn't connect (ConnectError)", "529 overloaded",
+])
+def test_a_busy_server_key_says_busy_not_broken(store, calls, monkeypatch, failure):
+    monkeypatch.setenv("GEMINI_API_KEY", "server-gemini")
+    calls["replies"]["gemini"] = LLMError(failure)
+    with pytest.raises(LLMError) as e:
+        ask(store)
+    assert "busy" in str(e.value)
+    assert "isn't working" not in str(e.value)

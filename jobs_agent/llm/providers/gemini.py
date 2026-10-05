@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from ...config import gemini_model
+from ...config import gemini_fast_model, gemini_model
 from ..base import Prompt, ProviderSpec, require_text, request_json, truncated
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -55,6 +55,7 @@ SPEC = ProviderSpec(
     label="Gemini",
     env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     default_model=gemini_model,
+    fast_model=gemini_fast_model,
     key_url="https://aistudio.google.com/apikey",
     complete=complete,
     list_models=list_models,

@@ -194,8 +194,13 @@
 
       <aside class="chat-card" id="profile-chat">
         <h4>Describe the role you want</h4>
-        <p class="hint">Tell the assistant about the role, and it will ask a few questions,
-          then propose target titles, domain terms, and blockers for you to review below.</p>
+        <p class="hint">Tell the assistant about the role, or let it suggest a profile from your
+          CV or from what you've shortlisted and rejected. Every suggestion is a preview you
+          apply or discard.</p>
+        <div class="suggest-row">
+          <button class="btn btn-secondary btn-sm" data-suggest="cv">Suggest from my CV</button>
+          <button class="btn btn-secondary btn-sm" data-suggest="history">Learn from my shortlist</button>
+        </div>
         <div class="chat-log" id="chat-log"></div>
 
         <div class="chat-proposal" id="chat-proposal" hidden>

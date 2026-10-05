@@ -56,6 +56,20 @@
 .stage-count { margin: 0; color: var(--color-neutral-700); max-width: 68ch; }
 .head-actions { display: flex; gap: var(--space-2); }
 
+/* — AI analysis status: a quiet line, with a progress rule while it runs — */
+.analysis-bar { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+                font-size: 13.5px; color: var(--color-neutral-700); }
+.analysis-text { flex: 1; min-width: 200px; }
+.analysis-progress { flex: 0 0 160px; height: 4px; border-radius: 2px; background: var(--color-divider);
+                     overflow: hidden; }
+.analysis-progress span { display: block; height: 100%; width: 0; background: var(--color-accent);
+                          transition: width .4s ease; }
+
+/* — plain-English search — */
+.search { display: flex; gap: var(--space-2); }
+.search .input { flex: 1; min-height: 40px; font-size: 15px; }
+.search-note { margin: -4px 0 0; font-size: 13.5px; color: var(--color-neutral-700); }
+
 /* — the ledger — */
 .ledger {
   background: var(--color-surface); border: 1px solid var(--color-divider);
@@ -103,6 +117,11 @@
 }
 .employer-name { overflow: hidden; text-overflow: ellipsis; }
 .employer .tag { flex: none; font-size: 11px; padding: 2px 6px; }
+/* Facts from the AI's reading, small enough to sit on the employer line. */
+.chip-mini { flex: none; font-size: 11.5px; font-weight: 500; line-height: 1; padding: 3px 6px;
+             border-radius: 999px; background: var(--color-neutral-200); color: var(--color-neutral-700); }
+.chip-mini.good { background: var(--color-accent-100); color: var(--color-accent-800); }
+.chip-mini.bad { background: var(--color-negative-100); color: var(--color-negative-700); }
 .loc, .age { font-size: 13.5px; color: var(--color-neutral-700);
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pay { font-size: 13.5px; white-space: nowrap; text-align: right; }
@@ -139,8 +158,29 @@
 .breakdown .plus .pts { color: var(--color-accent); }
 .breakdown .minus .pts { color: var(--color-negative); }
 .breakdown .note { color: var(--color-neutral-600); font-style: italic; }
+.breakdown .subtotal { display: flex; justify-content: space-between; font-size: 13.5px;
+                       font-weight: 600; padding: 7px 0 5px; border-top: 1px solid var(--color-rule-strong); }
+.breakdown .blend { margin: 4px 0 0; font-size: 12.5px; color: var(--color-neutral-600); }
+.breakdown .blend-lines li { color: var(--color-neutral-700); }
 .breakdown .total { margin-top: 4px; padding-top: 7px; font-weight: 700;
                     border-top: 3px double var(--color-rule-strong); }
+
+/* — the AI's reading of a posting — */
+.ai-reading { margin-bottom: var(--space-6); padding-bottom: var(--space-4);
+              border-bottom: 1px dashed var(--color-divider); }
+.ai-reading h3 { font-size: 14px; margin: 0 0 var(--space-2); }
+.ai-summary { margin: 0 0 4px; font-size: 15px; font-weight: 500; max-width: 72ch; }
+.ai-facts { margin: 0 0 var(--space-2); font-size: 13.5px; color: var(--color-neutral-700); }
+.ai-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-points li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.45; }
+.ai-points li::before { position: absolute; left: 2px; top: 0; font-weight: 700; }
+.ai-points .fits::before { content: "✓"; color: var(--color-accent); }
+.ai-points .gap::before { content: "–"; color: var(--color-neutral-500); }
+.ai-points .flag { color: var(--color-negative-700); }
+.ai-points .flag::before { content: "!"; color: var(--color-negative); left: 5px; }
+.visa-quote { margin: var(--space-3) 0 0; padding: 6px 12px; font-size: 13.5px;
+              border-left: 3px solid var(--color-accent-300); background: var(--color-neutral-100);
+              color: var(--color-neutral-800); }
 
 .job-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .job-actions .del { margin-left: auto; }

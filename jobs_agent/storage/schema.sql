@@ -76,3 +76,33 @@ CREATE TABLE IF NOT EXISTS user_secrets (
     updated    TEXT NOT NULL,
     PRIMARY KEY (user_id, provider)
 );
+
+-- What the AI made of a posting (see analysis/), one row per (user,
+-- posting). ``context`` is a hash of everything the analysis depended on
+-- besides the posting itself (the CV, the profile, the prompt version):
+-- when it no longer matches, the row is stale and the posting is analysed
+-- again. A failed retry keeps the last good ``result`` to show meanwhile.
+CREATE TABLE IF NOT EXISTS posting_analysis (
+    user_id     UUID NOT NULL,
+    posting_key TEXT NOT NULL,
+    context     TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    result      JSONB,
+    model       TEXT,
+    error       TEXT,
+    attempts    INTEGER NOT NULL DEFAULT 1,
+    updated     TEXT NOT NULL,
+    PRIMARY KEY (user_id, posting_key),
+    FOREIGN KEY (user_id, posting_key) REFERENCES postings(user_id, key) ON DELETE CASCADE
+)
+;
+
+-- AI calls made on the server's own keys, per user per UTC day, so one
+-- account can't run up the operator's bill. Calls on a user's own key
+-- aren't counted.
+CREATE TABLE IF NOT EXISTS ai_usage (
+    user_id UUID NOT NULL,
+    day     TEXT NOT NULL,
+    calls   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day)
+)

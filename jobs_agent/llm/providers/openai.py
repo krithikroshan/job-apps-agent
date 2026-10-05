@@ -67,6 +67,7 @@ SPEC = ProviderSpec(
     label="OpenAI",
     env_vars=("OPENAI_API_KEY",),
     default_model=lambda: DEFAULT_MODEL,
+    fast_model=lambda: DEFAULT_MODEL,
     key_url="https://platform.openai.com/api-keys",
     complete=complete,
     list_models=list_models,

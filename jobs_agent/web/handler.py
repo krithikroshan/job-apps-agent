@@ -38,7 +38,7 @@ from urllib.parse import parse_qs, urlparse
 
 from ..profile import load_profile
 from ..storage import DOC_CANDIDATE_NAME, open_store
-from . import api, api_settings, auth, pages
+from . import api, api_ai, api_settings, auth, pages
 
 def is_cross_site(headers: Mapping[str, str]) -> bool:
     """True for a POST another site's page made the browser send.
@@ -67,6 +67,7 @@ GET_ROUTES = {
     "/api/presets": api.get_presets,
     "/api/cv/file": api.get_cv_file,
     "/api/llm/settings": api_settings.get_llm_settings,
+    "/api/analysis": api_ai.get_analysis_status,
 }
 
 POST_ROUTES = {
@@ -85,6 +86,10 @@ POST_ROUTES = {
     "/api/llm/key/delete": api_settings.post_llm_key_delete,
     "/api/llm/test": api_settings.post_llm_test,
     "/api/llm/settings": api_settings.post_llm_settings,
+    "/api/analyse": api_ai.post_analyse,
+    "/api/analyse/retry": api_ai.post_analyse_retry,
+    "/api/suggest/profile": api_ai.post_suggest_profile,
+    "/api/search": api_ai.post_search,
 }
 
 

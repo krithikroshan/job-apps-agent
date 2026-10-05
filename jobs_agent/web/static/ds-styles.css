@@ -167,6 +167,12 @@ code {
 textarea.input { min-height: 90px; resize: vertical; }
 select.input { padding-right: 28px; }
 
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;
+         color: var(--color-neutral-800); }
+.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--color-accent); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                   clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* — tags: small status marks — */
 .tag {
   display: inline-flex; align-items: center; gap: 5px;

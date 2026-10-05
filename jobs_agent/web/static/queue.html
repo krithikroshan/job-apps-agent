@@ -45,7 +45,7 @@
       </div>
       <div class="field-pair">
         <div class="field">
-          <label for="f-min-score">Minimum score</label>
+          <label for="f-min-score">Minimum match</label>
           <input class="input" id="f-min-score" type="number" value="0" min="0" step="1">
         </div>
         <div class="field">
@@ -53,6 +53,35 @@
           <input class="input" id="f-limit" type="number" value="50" min="1" step="1">
         </div>
       </div>
+    </section>
+
+    <section class="filters" aria-labelledby="ai-filters-title">
+      <h2 class="rail-title" id="ai-filters-title">From the AI's reading</h2>
+      <div class="field">
+        <label for="f-visa">Visa sponsorship</label>
+        <select class="input" id="f-visa">
+          <option value="">Any</option>
+          <option value="offered">Says it sponsors visas</option>
+          <option value="hide_not_offered">Hide "no sponsorship"</option>
+        </select>
+      </div>
+      <div class="field-pair">
+        <div class="field">
+          <label for="f-level">Level</label>
+          <select class="input" id="f-level">
+            <option value="">Any</option>
+            <option value="entry">Graduate or entry</option>
+            <option value="junior">Up to junior</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-max-years">Max years asked</label>
+          <input class="input" id="f-max-years" type="number" min="0" max="15" step="1" placeholder="Any">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-graduate-scheme"> Graduate schemes only</label>
+      <label class="check"><input type="checkbox" id="f-study-support"> Funds a qualification (ACA, ACCA…)</label>
+      <label class="check"><input type="checkbox" id="f-hide-red-flags"> Hide postings with red flags</label>
     </section>
 
     <p class="rail-note">Nothing here sends an application. You submit each one yourself,
@@ -71,11 +100,26 @@
       </div>
     </div>
 
+    <div class="analysis-bar" id="analysis-bar" hidden>
+      <div class="analysis-text" id="analysis-text"></div>
+      <div class="analysis-progress" id="analysis-progress" hidden><span></span></div>
+      <button class="btn btn-secondary btn-sm" id="btn-analyse">Analyse with AI</button>
+      <button class="btn btn-ghost btn-sm" id="btn-retry-analysis" hidden>Try those again</button>
+    </div>
+
+    <form class="search" id="search-form" role="search">
+      <label class="visually-hidden" for="search-input">Describe what you're looking for</label>
+      <input class="input" id="search-input" type="search" maxlength="300" autocomplete="off"
+             placeholder="Describe what you want, e.g. graduate audit schemes in Manchester that sponsor visas">
+      <button class="btn btn-secondary" type="submit" id="btn-search">Search</button>
+    </form>
+    <p class="search-note" id="search-note" hidden></p>
+
     <div class="banner" id="status-msg" role="status" aria-live="polite"></div>
 
     <div class="ledger">
       <div class="ledger-head" aria-hidden="true">
-        <span>Score</span><span>Role</span><span>Location</span>
+        <span>Match</span><span>Role</span><span>Location</span>
         <span class="num">Salary</span><span>Posted</span><span>Source</span><span></span>
       </div>
       <div id="results"><p class="empty-line">Loading…</p></div>

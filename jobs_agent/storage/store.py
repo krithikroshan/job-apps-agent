@@ -14,6 +14,9 @@ from psycopg.rows import DictRow, dict_row
 
 from ..config import database_url
 from ..models import Posting
+from .analyses import MATCH_SQL, AIFilters, AnalysisStore, match_score
+
+__all__ = ["AIFilters", "Store", "match_score", "open_store"]
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
@@ -27,7 +30,7 @@ DOC_SCORING_PROFILE = "scoring_profile"
 DOC_LLM_SETTINGS = "llm_settings"
 
 
-class Store:
+class Store(AnalysisStore):
     def __init__(self, dsn: str | None = None, *, user_id: str, schema: str | None = None):
         """Connect to Postgres, scoped to ``user_id`` (a Supabase Auth user
         id). Every read and write this Store makes is filtered to, or
@@ -120,11 +123,21 @@ class Store:
               status: str = "new", location: str | None = None,
               min_salary: float | None = None,
               max_salary: float | None = None,
-              contract_type: str | None = None) -> Iterator[DictRow]:
-        query = """SELECT p.*, a.status, a.letter, a.notes, a.updated FROM postings p
+              contract_type: str | None = None,
+              ai: AIFilters | None = None) -> Iterator[DictRow]:
+        """One stage of the queue, best Match first. Each row carries
+        ``match`` (0-100, see :func:`match_score`) and ``analysis`` (the AI's
+        result, or None); ``min_score`` filters on Match."""
+        query = f"""SELECT * FROM (
+                 SELECT p.*, a.status, a.letter, a.notes, a.updated,
+                        x.result AS analysis, x.model AS analysis_model,
+                        {MATCH_SQL} AS match
+                 FROM postings p
                  JOIN applications a ON a.user_id = p.user_id AND a.posting_key = p.key
-                 WHERE p.user_id = %s AND a.status = %s AND p.score >= %s"""
-        params: list = [self.user_id, status, min_score]
+                 LEFT JOIN posting_analysis x
+                   ON x.user_id = p.user_id AND x.posting_key = p.key
+                 WHERE p.user_id = %s AND a.status = %s"""
+        params: list = [self.user_id, status]
         if location:
             query += " AND p.location ILIKE %s"
             params.append(f"%{location}%")
@@ -141,8 +154,13 @@ class Store:
         if contract_type:
             query += " AND p.contract_type = %s"
             params.append(contract_type)
-        query += " ORDER BY p.score DESC, p.first_seen DESC LIMIT %s"
-        params.append(limit)
+        if ai:
+            ai_sql, ai_params = ai.sql()
+            query += ai_sql
+            params += ai_params
+        query += """) q WHERE q.match >= %s
+                 ORDER BY q.match DESC, q.first_seen DESC LIMIT %s"""
+        params += [min_score, limit]
         yield from self.conn.execute(query, params)
 
     def get_posting(self, key: str) -> DictRow | None:
@@ -190,6 +208,12 @@ class Store:
         posting.
         """
         cur = self.conn.cursor()
+        # Explicit as well as cascaded: a table created before the cascade
+        # was added wouldn't have it.
+        cur.execute(
+            "DELETE FROM posting_analysis WHERE user_id=%s AND posting_key=%s",
+            (self.user_id, key),
+        )
         cur.execute(
             "DELETE FROM applications WHERE user_id=%s AND posting_key=%s",
             (self.user_id, key),

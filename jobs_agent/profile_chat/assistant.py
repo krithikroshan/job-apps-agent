@@ -58,10 +58,11 @@ def chat_turn(client: Client, profile: Profile, history: list[dict],
                                json_mode=True)
     except LLMError as e:
         raise ChatError(f"the profile assistant failed: {e}") from e
-    return _parse(text)
+    return parse_reply(text)
 
 
-def _parse(text: str) -> dict[str, Any]:
+def parse_reply(text: str) -> dict[str, Any]:
+    """A ``{reply, proposal}`` JSON reply, validated. Raises ChatError."""
     # Gemini and OpenAI are constrained to raw JSON, but Claude and the
     # OpenRouter models aren't: they may wrap it in a ```json fence or a
     # sentence of preamble. The object is everything from the first "{" to

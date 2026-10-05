@@ -18,8 +18,15 @@ const STAGE_HINT = {
   submitted: "",
   rejected: "Reset one to bring it back to New.",
 };
-//: Scores at or above this get the highlighter: worth a look first.
-const STRONG_SCORE = 50;
+//: Match scores (0-100) at or above this get the highlighter; below WEAK
+//: they fade back.
+const STRONG_MATCH = 70;
+const WEAK_MATCH = 35;
+const VISA_LABEL = {
+  offered: ["Sponsors visas", "good"],
+  not_offered: ["No sponsorship", "bad"],
+  right_to_work_required: ["Needs right to work", "bad"],
+};
 const SOURCES = {
   reed: { label: "Reed", logo: "/static/logo-reed.png" },
   adzuna: { label: "Adzuna", logo: "/static/logo-adzuna.png" },
@@ -170,11 +177,20 @@ function breakdown(row) {
       <span>${escapeHtml(label)}</span>
       <span class="pts">${points == null ? "" : points > 0 ? `+${points}` : `−${-points}`}</span>
     </li>`).join("");
+  const fit = row.analysis && row.analysis.fit != null ? row.analysis.fit : null;
+  const blend = fit == null
+    ? `<p class="blend">Not read by the AI yet, so the match is the keyword score rescaled to 100.</p>`
+    : `<ul class="blend-lines">
+         <li><span>Keyword score, 40%</span><span class="pts">${row.score}</span></li>
+         <li><span>AI fit with your CV, 60%</span><span class="pts">${fit}</span></li>
+       </ul>`;
   return `
     <aside class="breakdown" aria-label="How this posting was scored">
-      <h3>Why it scored ${row.score}</h3>
+      <h3>Why it's a ${row.match} match</h3>
       <ul>${lines}</ul>
-      <div class="total"><span>Score</span><span class="pts">${row.score}</span></div>
+      <div class="subtotal"><span>Keyword score</span><span class="pts">${row.score}</span></div>
+      ${blend}
+      <div class="total"><span>Match</span><span class="pts">${row.match}</span></div>
     </aside>`;
 }
 
@@ -187,7 +203,7 @@ function description(row) {
     <div class="desc">
       <h3>About the role</h3>
       ${clipped ? `<p>${escapeHtml(clipped)}</p>` : `<p class="muted">No description was given.</p>`}
-      ${row.url ? `<a class="listing-link" href="${escapeHtml(row.url)}" target="_blank"
+      ${safeUrl(row.url) ? `<a class="listing-link" href="${escapeHtml(safeUrl(row.url))}" target="_blank"
                      rel="noopener">Read the full listing on ${escapeHtml(source)}</a>` : ""}
     </div>`;
 }
@@ -230,10 +246,64 @@ function letterBox(row, open) {
     </details>`;
 }
 
+/* Small marks on the row from the AI's reading: the facts worth seeing
+ * without opening anything. */
+function chips(a) {
+  if (!a) return "";
+  const out = [];
+  const visa = Object.hasOwn(VISA_LABEL, a.visa) ? VISA_LABEL[a.visa] : null;
+  if (visa) out.push(`<span class="chip-mini ${visa[1]}">${visa[0]}</span>`);
+  if (a.graduate_scheme) out.push(`<span class="chip-mini">Grad scheme</span>`);
+  if (a.study_support) out.push(`<span class="chip-mini good">Study support</span>`);
+  if (a.deadline) out.push(`<span class="chip-mini">Closes ${escapeHtml(shortDate(a.deadline))}</span>`);
+  if (a.red_flags && a.red_flags.length) out.push(`<span class="chip-mini bad">Red flag</span>`);
+  return out.join("");
+}
+
+function shortDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return Number.isFinite(d.getTime())
+    ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : iso;
+}
+
+function bullets(items, cls) {
+  return (items || []).map((t) => `<li class="${cls}">${escapeHtml(t)}</li>`).join("");
+}
+
+function aiReading(a) {
+  if (!a) return "";
+  const years = a.min_years == null ? "" : a.min_years === 0
+    ? "No experience required" : `Asks for ${a.min_years}+ year${a.min_years === 1 ? "" : "s"}`;
+  const facts = [
+    a.seniority && a.seniority !== "unknown" ? `${a.seniority[0].toUpperCase()}${a.seniority.slice(1)} level` : "",
+    years,
+    (a.qualifications || []).length ? `Needs ${a.qualifications.join(", ")}` : "",
+  ].filter(Boolean);
+  const visa = a.visa_evidence
+    ? `<blockquote class="visa-quote"><b>${escapeHtml((Object.hasOwn(VISA_LABEL, a.visa) ? VISA_LABEL[a.visa] : ["Visa"])[0])}:</b>
+         “${escapeHtml(a.visa_evidence)}”</blockquote>` : "";
+  return `
+    <section class="ai-reading" aria-label="The AI's reading of this posting">
+      <h3>The AI's reading</h3>
+      ${a.summary ? `<p class="ai-summary">${escapeHtml(a.summary)}</p>` : ""}
+      ${facts.length ? `<p class="ai-facts">${facts.map(escapeHtml).join(". ")}.</p>` : ""}
+      <ul class="ai-points">
+        ${bullets(a.fit_reasons, "fits")}${bullets(a.gaps, "gap")}${bullets(a.red_flags, "flag")}
+      </ul>
+      ${visa}
+    </section>`;
+}
+
+/* Listing links come from the job boards' feeds: only web addresses are
+ * linked, never javascript: or data: ones. */
+function safeUrl(url) {
+  return /^https?:\/\//i.test(url || "") ? url : "";
+}
+
 function card(row, open) {
   const status = row.status;
   const key = escapeHtml(row.key);
-  const url = escapeHtml(row.url || "");
+  const url = escapeHtml(safeUrl(row.url));
   const lead = LEAD_ACTION[status];
 
   const btn = (kind, label) => {
@@ -271,17 +341,17 @@ function card(row, open) {
         </button>
       </span>` : `<span class="quick"></span>`;
 
-  const strength = row.score >= STRONG_SCORE ? " strong" : row.score < 25 ? " weak" : "";
+  const strength = row.match >= STRONG_MATCH ? " strong" : row.match < WEAK_MATCH ? " weak" : "";
   const kind = row.contract_type && row.contract_type !== "permanent"
     ? `<span class="tag tag-neutral">${escapeHtml(row.contract_type[0].toUpperCase() + row.contract_type.slice(1))}</span>` : "";
   const hasLetter = HAS_LETTER_BOX.has(status);
   return `
     <article class="job${open ? " is-open" : ""}" data-row="${key}">
       <div class="job-row" data-toggle="${key}">
-        <span class="score${strength}"><span>${row.score}</span></span>
+        <span class="score${strength}" title="${row.analysis ? "Keywords and AI fit" : "Keywords only, not yet read by the AI"}"><span>${row.match}</span></span>
         <div class="role">
           <button class="title" data-toggle="${key}" aria-expanded="${open}">${escapeHtml(row.title)}</button>
-          <span class="employer"><span class="employer-name">${escapeHtml(row.employer || "Employer not named")}</span>${kind}</span>
+          <span class="employer"><span class="employer-name">${escapeHtml(row.employer || "Employer not named")}</span>${kind}${chips(row.analysis)}</span>
         </div>
         <span class="loc">${placeName(row.location)}</span>
         <span class="pay">${salaryCell(row)}</span>
@@ -291,7 +361,7 @@ function card(row, open) {
       </div>
       <div class="job-detail">
         ${hasLetter ? letterBox(row, true) : ""}
-        <div class="detail-grid">${description(row)}${breakdown(row)}</div>
+        <div class="detail-grid"><div>${aiReading(row.analysis)}${description(row)}</div>${breakdown(row)}</div>
         <div class="job-actions">
           ${actions.join("")}
           <button class="btn btn-danger del" data-delete-key="${key}">Delete</button>
@@ -321,13 +391,19 @@ function emptyState() {
     </div>`;
 }
 
+//: Bumped by each loadQueue call; a response for an older call is dropped,
+//: so a slow reply for the previous stage or filters can't overwrite this one.
+let queueRequest = 0;
+
 async function loadQueue() {
+  const mine = ++queueRequest;
   const limit = el("f-limit").value || 50;
   const minScore = el("f-min-score").value || 0;
   const location = el("f-location").value.trim();
   const minSalary = el("f-min-salary").value.trim();
   const maxSalary = el("f-max-salary").value.trim();
   const contractType = el("f-contract-type").value;
+  const ai = aiFilterParams();
   el("stage-title").textContent = STATUS_LABEL[stage];
   el("stage-count").textContent = STAGE_HINT[stage];
   el("results").innerHTML = `<p class="empty-line">Loading…</p>`;
@@ -337,8 +413,10 @@ async function loadQueue() {
   if (minSalary) params.set("min_salary", minSalary);
   if (maxSalary) params.set("max_salary", maxSalary);
   if (contractType) params.set("contract_type", contractType);
+  for (const [name, value] of Object.entries(ai)) params.set(name, value);
   const res = await fetch(`/api/queue?${params}`);
   const rows = await res.json();
+  if (mine !== queueRequest) return;
 
   // The rail counts the whole stage; this counts what got past the filters.
   // Where those differ, say so, or the two numbers look like a bug.
@@ -589,6 +667,143 @@ el("f-min-salary").addEventListener("change", () => { setMessage(""); loadQueue(
 el("f-max-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
 el("f-contract-type").addEventListener("change", () => { setMessage(""); loadQueue(); });
 
+/* — AI filters, shared by the queue request and the search box — */
+
+const AI_FIELDS = {
+  visa: "f-visa", level: "f-level", max_years: "f-max-years",
+};
+const AI_FLAGS = {
+  graduate_scheme: "f-graduate-scheme", study_support: "f-study-support",
+  hide_red_flags: "f-hide-red-flags",
+};
+
+function aiFilterParams() {
+  const out = {};
+  for (const [name, id] of Object.entries(AI_FIELDS)) {
+    const value = el(id).value.trim();
+    if (value) out[name] = value;
+  }
+  for (const [name, id] of Object.entries(AI_FLAGS)) if (el(id).checked) out[name] = "1";
+  return out;
+}
+
+for (const id of [...Object.values(AI_FIELDS), ...Object.values(AI_FLAGS)]) {
+  el(id).addEventListener("change", () => { setMessage(""); loadQueue(); });
+}
+
+/* — plain-English search: the AI fills in the filters, visibly — */
+
+const SEARCH_CONTROLS = {
+  location: "f-location", min_salary: "f-min-salary", max_salary: "f-max-salary",
+  contract_type: "f-contract-type", min_score: "f-min-score", ...AI_FIELDS,
+};
+
+function applyFilters(filters = {}) {
+  filters = filters || {};
+  for (const [name, id] of Object.entries(SEARCH_CONTROLS)) {
+    el(id).value = filters[name] != null ? filters[name] : (name === "min_score" ? "0" : "");
+  }
+  for (const [name, id] of Object.entries(AI_FLAGS)) el(id).checked = filters[name] === true;
+}
+
+el("search-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const query = el("search-input").value.trim();
+  if (!query) return;
+  const btn = el("btn-search");
+  btn.disabled = true;
+  setMessage("Reading your search…", "progress");
+  try {
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return setMessage(data.error || "Couldn't read that search.", "error");
+    applyFilters(data.filters);
+    const note = el("search-note");
+    note.hidden = false;
+    note.innerHTML = `${escapeHtml(data.note || "Filters set from your search.")}
+      The filters on the left now match it. <button class="btn btn-ghost btn-sm" id="btn-clear-search" type="button">Clear</button>`;
+    setMessage("");
+    await loadQueue();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+el("search-note").addEventListener("click", (ev) => {
+  if (!ev.target.closest("#btn-clear-search")) return;
+  applyFilters({});
+  el("search-input").value = "";
+  el("search-note").hidden = true;
+  loadQueue();
+});
+
+/* — AI analysis, one batch per request, with progress — */
+
+let analysing = false;
+
+function showAnalysis({ remaining, analysed, failed }) {
+  const bar = el("analysis-bar");
+  bar.hidden = !(remaining || analysed || failed);
+  const parts = [`${analysed} posting${analysed === 1 ? "" : "s"} read by the AI`];
+  if (remaining) parts.push(`${remaining} waiting`);
+  if (failed) parts.push(`${failed} it couldn't read`);
+  el("analysis-text").textContent = parts.join(", ") + ".";
+  el("btn-analyse").hidden = !remaining || analysing;
+  el("btn-retry-analysis").hidden = !failed || !!remaining || analysing;
+  const progress = el("analysis-progress");
+  progress.hidden = !analysing;
+  const total = remaining + analysed + failed;
+  progress.querySelector("span").style.width = total ? `${((analysed + failed) / total) * 100}%` : "0";
+}
+
+async function loadAnalysisStatus() {
+  const res = await fetch("/api/analysis");
+  if (res.ok) showAnalysis(await res.json());
+}
+
+async function runAnalysis() {
+  if (analysing) return;
+  analysing = true;
+  el("btn-analyse").hidden = true;
+  // Stop when two batches in a row leave the same number waiting: the
+  // server gives up on a posting after a couple of tries, so real progress
+  // always shrinks it.
+  let last = Infinity;
+  let stalled = 0;
+  try {
+    for (;;) {
+      const res = await fetch("/api/analyse", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409) break;   // another tab is already on it
+      if (!res.ok) {
+        setMessage(data.error || "The AI couldn't analyse postings.", "error");
+        break;
+      }
+      await loadAnalysisStatus();
+      if (!data.remaining) break;
+      stalled = data.remaining < last ? 0 : stalled + 1;
+      last = data.remaining;
+      if (stalled >= 2) break;
+    }
+  } catch (e) {
+    setMessage("Lost contact with the server while analysing. Try again.", "error");
+  } finally {
+    analysing = false;
+    await loadAnalysisStatus().catch(() => {});
+    await loadQueue();
+  }
+}
+
+el("btn-analyse").addEventListener("click", runAnalysis);
+el("btn-retry-analysis").addEventListener("click", async () => {
+  const res = await fetch("/api/analyse/retry", { method: "POST" });
+  if (res.ok) runAnalysis();
+});
+
 async function fetchListings() {
   const btn = el("btn-fetch");
   btn.disabled = true;
@@ -607,6 +822,7 @@ async function fetchListings() {
         "info",
       );
       await reload();
+      runAnalysis();
     }
   } catch (e) {
     setMessage("Fetch failed: " + e, "error");
@@ -619,3 +835,4 @@ el("btn-fetch").addEventListener("click", fetchListings);
 
 loadLocationOptions();
 reload();
+loadAnalysisStatus();

@@ -95,6 +95,7 @@ SPEC = ProviderSpec(
     label="OpenRouter",
     env_vars=("OPENROUTER_API_KEY",),
     default_model=lambda: "",
+    fast_model=lambda: "",
     key_url="https://openrouter.ai/settings/keys",
     complete=complete,
     list_models=list_models,

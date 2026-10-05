@@ -16,6 +16,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+#: For bulk analysis of postings: answers a batch in seconds rather than a
+#: minute, and was far less often overloaded in testing.
+DEFAULT_GEMINI_FAST_MODEL = "gemini-flash-lite-latest"
 
 
 def gemini_model() -> str:
@@ -27,6 +30,12 @@ def gemini_model() -> str:
     ``load_dotenv`` put in the environment regardless of import order.
     """
     return os.getenv("JOBS_AGENT_GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+
+
+def gemini_fast_model() -> str:
+    """Gemini model for analysing postings; override with
+    JOBS_AGENT_GEMINI_FAST_MODEL."""
+    return os.getenv("JOBS_AGENT_GEMINI_FAST_MODEL", DEFAULT_GEMINI_FAST_MODEL)
 
 
 #: Search terms fanned out across every configured job board.

@@ -36,6 +36,7 @@ from ..profile import (
 )
 from ..profile_chat import ChatError, chat_turn
 from ..sources import NoSourcesConfigured
+from ..storage.analyses import AIFilters
 from ..storage import (
     DOC_CANDIDATE_NAME,
     DOC_CV,
@@ -122,8 +123,26 @@ def get_queue(store: Store, req: Request) -> Json:
         min_salary=req.float_param("min_salary"),
         max_salary=req.float_param("max_salary"),
         contract_type=req.param("contract_type").strip() or None,
+        ai=ai_filters(req),
     )
     return Json([_row_to_dict(r) for r in rows])
+
+
+def ai_filters(req: Request) -> AIFilters:
+    """The analysis-based filters from the query string; values outside
+    the known set are ignored rather than refused."""
+    visa = req.param("visa")
+    level = req.param("level")
+    years = req.param("max_years").strip()
+    flag = lambda name: req.param(name) in ("1", "true")  # noqa: E731
+    return AIFilters(
+        visa=visa if visa in ("offered", "hide_not_offered") else None,
+        level=level if level in ("entry", "junior") else None,
+        max_years=int(years) if years.isascii() and years.isdigit() and int(years) <= 15 else None,
+        graduate_scheme=flag("graduate_scheme"),
+        study_support=flag("study_support"),
+        hide_red_flags=flag("hide_red_flags"),
+    )
 
 
 def get_documents(store: Store, req: Request) -> Json:
@@ -148,7 +167,7 @@ def get_cv_file(store: Store, req: Request) -> File | Json:
 
 
 def get_profile(store: Store, req: Request) -> Json:
-    return Json(_profile_as_text(load_profile(store)))
+    return Json(profile_as_text(load_profile(store)))
 
 
 def get_presets(store: Store, req: Request) -> Json:
@@ -156,7 +175,7 @@ def get_presets(store: Store, req: Request) -> Json:
     Profile page can load one into its editor for review before saving."""
     return Json([
         {"id": p.id, "label": p.label, "description": p.description,
-         "profile": _profile_as_text(p.profile)}
+         "profile": profile_as_text(p.profile)}
         for p in PRESETS
     ])
 
@@ -321,12 +340,12 @@ def post_profile(store: Store, req: Request) -> Json:
         return error("Target titles can't be empty — a posting matching none "
                      "of them is dropped, so an empty list drops everything.")
     save_profile(store, updated)
-    return Json({"ok": True, "profile": _profile_as_text(updated)})
+    return Json({"ok": True, "profile": profile_as_text(updated)})
 
 
 def post_profile_reset(store: Store, req: Request) -> Json:
     save_profile(store, DEFAULT_PROFILE)
-    return Json({"ok": True, "profile": _profile_as_text(DEFAULT_PROFILE)})
+    return Json({"ok": True, "profile": profile_as_text(DEFAULT_PROFILE)})
 
 
 def post_profile_chat(store: Store, req: Request) -> Json:
@@ -343,7 +362,7 @@ def post_profile_chat(store: Store, req: Request) -> Json:
     current = load_profile(store)
     pending = req.payload.get("pending_proposal")
     try:
-        draft = _merge_proposal(current, pending) if isinstance(pending, dict) else current
+        draft = merge_proposal(current, pending) if isinstance(pending, dict) else current
     except ProfileError:
         draft = current  # a stale/bad pending proposal — fall back to what's saved
 
@@ -358,7 +377,7 @@ def post_profile_chat(store: Store, req: Request) -> Json:
         return Json({"reply": result["reply"], "proposal": None, "preview": None})
 
     try:
-        merged = _merge_proposal(draft, proposal)
+        merged = merge_proposal(draft, proposal)
     except ProfileError as e:
         return Json({
             "reply": f"{result['reply']} (I couldn't apply that: {e})",
@@ -368,13 +387,13 @@ def post_profile_chat(store: Store, req: Request) -> Json:
     return Json({
         "reply": result["reply"],
         "proposal": proposal,
-        "preview": _profile_as_text(merged),
+        "preview": profile_as_text(merged),
     })
 
 
 # -- profile text round-trip ----------------------------------------------
 
-def _profile_as_text(profile) -> dict[str, str]:
+def profile_as_text(profile) -> dict[str, str]:
     return {
         "target_titles": format_weights(profile.target_titles),
         "domain_terms": format_weights(profile.domain_terms),
@@ -440,7 +459,7 @@ def _search_settings_from_text(payload: dict) -> dict[str, Any]:
     return changes
 
 
-def _merge_proposal(base, proposal: dict):
+def merge_proposal(base, proposal: dict):
     """``base`` with the chat assistant's proposed fields substituted in, via
     the same text round-trip (and so the same validation) manual edits go
     through — a proposal is just another partial, full-value update."""
