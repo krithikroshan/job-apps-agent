@@ -65,17 +65,19 @@ def build_sources() -> tuple[list[JobSource], list[str]]:
 
 
 async def gather_all(sources: list[JobSource], keywords: list[str],
+                     locations: list[str], *, radius_miles: int = 15,
                      per_keyword: int = 200) -> list[Posting]:
-    """Fan out every keyword across every source concurrently.
+    """Fan out every keyword x location across every source concurrently.
 
     A board that errors is logged and skipped; the postings other boards
     returned are still worth having.
     """
     async with httpx.AsyncClient(follow_redirects=True) as client:
         tasks = [
-            src.fetch(client, kw, per_keyword)
+            src.fetch(client, kw, per_keyword, location=loc, radius_miles=radius_miles)
             for src in sources
             for kw in keywords
+            for loc in locations
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

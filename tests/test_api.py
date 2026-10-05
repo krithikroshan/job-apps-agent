@@ -246,3 +246,71 @@ def test_a_chat_error_is_returned_as_a_400(store, monkeypatch):
     assert res.status == 400
     assert "GEMINI_API_KEY" in res.body["error"]
 
+
+
+# -- presets and search settings ---------------------------------------------
+
+def test_presets_are_listed_as_editable_text(store):
+    body = api.get_presets(store, api.Request()).body
+    ids = [p["id"] for p in body]
+    assert "accounting_graduate" in ids and "law_compliance" in ids
+    accounting = next(p for p in body if p["id"] == "accounting_graduate")
+    assert "graduate accountant" in accounting["profile"]["target_titles"]
+    assert accounting["profile"]["preset"] == "accounting_graduate"
+
+
+def test_get_profile_includes_the_search_settings(store):
+    body = api.get_profile(store, api.Request()).body
+    assert body["locations"] == "London"
+    assert body["radius_miles"] == "15"
+    assert "=" in body["salary_bands"]
+
+
+def test_saving_search_settings_persists_them(store):
+    res = api.post_profile(store, req(
+        target_titles="graduate accountant = 30",
+        locations="London, Manchester",
+        radius_miles="25",
+        salary_bands="30000 = 10\n0 = -5",
+        contract_bonus="0",
+        domain_only_threshold="12",
+        preset="accounting_graduate",
+    ))
+    assert res.status == 200, res.body
+    saved = load_profile(store)
+    assert saved.locations == ["London", "Manchester"]
+    assert saved.radius_miles == 25
+    assert saved.salary_bands == [[30000, 10], [0, -5]]
+    assert saved.contract_bonus == 0
+    assert saved.domain_only_threshold == 12
+    assert saved.preset == "accounting_graduate"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("radius_miles", "500"),
+    ("radius_miles", "far"),
+    ("locations", ""),
+    ("domain_only_threshold", "99"),
+])
+def test_bad_search_settings_save_nothing(store, field, value):
+    res = api.post_profile(store, req(target_titles="clerk = 10", **{field: value}))
+    assert res.status == 400
+    assert load_profile(store) == DEFAULT_PROFILE
+
+
+@pytest.mark.parametrize("field,value", [
+    ("locations", ["London"]),
+    ("salary_bands", ["30000 = 5"]),
+    ("radius_miles", None),
+])
+def test_non_string_search_settings_are_a_400(store, field, value):
+    res = api.post_profile(store, req(target_titles="clerk = 10", **{field: value}))
+    assert res.status == 400
+
+
+def test_an_unknown_preset_from_an_old_save_is_dropped_not_fatal(store):
+    """``preset`` is display-only; a removed preset id must not make the
+    profile unsaveable."""
+    res = api.post_profile(store, req(target_titles="clerk = 10", preset="retired-preset"))
+    assert res.status == 200
+    assert load_profile(store).preset == ""

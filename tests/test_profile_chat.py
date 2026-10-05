@@ -8,7 +8,7 @@ from jobs_agent.profile import Profile
 from jobs_agent.profile_chat.assistant import ChatError, chat_turn
 
 PROFILE = Profile(
-    name="", location="London",
+    name="",
     target_titles={"compliance analyst": 30},
     domain_terms={"aml": 10},
     title_blockers=["senior"],

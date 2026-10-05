@@ -21,7 +21,9 @@
     <section class="filters">
       <div class="field">
         <label for="f-location">Location</label>
-        <input class="input" id="f-location" type="text" value="Central London" placeholder="e.g. London">
+        <input class="input" id="f-location" type="text" list="f-location-options"
+               placeholder="Anywhere">
+        <datalist id="f-location-options"></datalist>
       </div>
       <div class="field">
         <label for="f-limit">Show at most</label>

@@ -1,7 +1,9 @@
 # jobs-agent
 
-Application pipeline for London legal and compliance roles: fetch, score,
-deduplicate, draft, and stage into a review queue.
+Application pipeline for UK job hunting: fetch, score, deduplicate, draft,
+and stage into a review queue. Ships with presets for graduate accounting
+and for London legal and compliance roles; any field works once its scoring
+profile is set.
 
 **Nothing here submits an application.** A human approves and submits.
 
@@ -17,7 +19,7 @@ cp .env.example .env    # then fill it in, or export the keys directly
 |---|---|---|
 | `DATABASE_URL` | everything | Supabase project -> Settings -> Database -> Connection string |
 | `SUPABASE_URL` | signup/login | Supabase project -> Settings -> API -> Project URL |
-| `SUPABASE_ANON_KEY` | signup/login | Supabase project -> Settings -> API -> Project API keys -> anon public |
+| `SUPABASE_PUBLISHABLE_KEY` | signup/login | Supabase project -> Settings -> API Keys -> Publishable key (the legacy `SUPABASE_ANON_KEY` also works) |
 | `REED_API_KEY` | fetching | https://www.reed.co.uk/developers/jobseeker |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | fetching | https://developer.adzuna.com/ |
 | `GEMINI_API_KEY` | drafting cover letters | https://aistudio.google.com/apikey |
@@ -50,11 +52,19 @@ page requires a signed-in session and shows only that account's own data —
 see **Accounts and data segregation** below. Once signed in, there are two
 pages:
 
-- **Job Queue** (`/`) — fetch, filter by status/score/location (defaults to
-  "Central London" — clear the box for anywhere), and move postings through
-  the review workflow below.
+- **Job Queue** (`/`) — fetch, filter by status/score/location (blank for
+  anywhere; suggestions come from the profile's search locations), and move
+  postings through the review workflow below.
 - **Profile** (`/documents`) — your name, your CV, an example cover letter,
-  and the scoring profile.
+  and the scoring profile: a career preset to start from, where to search,
+  and how postings are scored.
+
+**Presets and search area.** "Start from a preset" on the Scoring profile
+tab loads a complete profile for a field (`jobs_agent/presets/`) into the
+editor for review; nothing is saved until you save it. "Where to search"
+takes up to five places (`UK` means anywhere) and a radius. Every target
+title is searched in every place, strongest titles first, capped at 24
+searches per board per fetch — a fetch that hits the cap says so.
 
 Everything on the Profile page lives in the Postgres database: the CV as both
 the original file (`files` table, re-downloadable from the page) and its
@@ -100,6 +110,7 @@ jobs_agent/
   config.py       environment, paths, search keywords
   models.py       Posting and its deduplication keys
   profile.py      the scoring profile: dataclass, defaults, persistence
+  presets/        one complete starting profile per career field
   scoring.py      deterministic relevance scoring
   pipeline.py     fetch -> score -> dedupe -> store, shared by CLI and web
   cli.py          argument parsing and console output only
@@ -157,9 +168,10 @@ transition otherwise, not just the UI.
   current docs on first run; each adapter is a single small module for that
   reason.
 - Coverage excludes roles posted only on firm career pages or LinkedIn.
-- `title_blockers` includes `counsel`, which will also drop legitimate
-  "Legal Counsel Assistant" roles. Edit it on the Profile page if that
-  segment matters.
+- The law preset's `title_blockers` include `counsel`, which will also drop
+  legitimate "Legal Counsel Assistant" roles; the accounting preset's
+  `qualified accountant` also drops "Part Qualified Accountant". Edit them on
+  the Profile page if those segments matter.
 - Freshness scoring assumes the posted date is real. Agencies repost stale
   roles with fresh dates; the dedupe catches most, not all.
 - Editing the scoring profile affects the next fetch. Postings already in the

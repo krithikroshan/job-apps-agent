@@ -78,15 +78,19 @@ def supabase_url() -> str:
     return url.rstrip("/")
 
 
-def supabase_anon_key() -> str:
-    """Supabase anon/public API key, sent as the ``apikey`` header on every
-    Auth call. Project Settings -> API -> Project API keys -> anon public.
+def supabase_api_key() -> str:
+    """Supabase publishable key, sent as the ``apikey`` header on every Auth
+    call. Project Settings -> API Keys -> Publishable key.
+
+    Falls back to ``SUPABASE_ANON_KEY``, the legacy anon key, for projects
+    still on the old key system — Auth accepts either in this header. Never
+    sent as a bearer token: that header carries the user's session JWT.
     """
-    key = os.getenv("SUPABASE_ANON_KEY")
+    key = os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
     if not key:
         raise RuntimeError(
-            "SUPABASE_ANON_KEY is not set. Add it to .env locally (Project "
-            "Settings -> API -> Project API keys -> anon public), and as an "
+            "SUPABASE_PUBLISHABLE_KEY is not set. Add it to .env locally "
+            "(Project Settings -> API Keys -> Publishable key), and as an "
             "environment variable in the Vercel project settings for "
             "deployments."
         )

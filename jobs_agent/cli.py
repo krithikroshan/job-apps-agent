@@ -98,9 +98,9 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--min-score", type=int, default=30)
     q.add_argument("--limit", type=int, default=25)
     q.add_argument("--status", default="new")
-    q.add_argument("--location", default="Central London",
-                   help="substring match against posting location "
-                        "(default: 'Central London'; pass '' for anywhere)")
+    q.add_argument("--location", default="",
+                   help="case-insensitive substring match against posting "
+                        "location (default: anywhere)")
     q.set_defaults(func=cmd_queue)
 
     s = sub.add_parser("stats", help="count applications by status")

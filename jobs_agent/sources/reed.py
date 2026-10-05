@@ -7,7 +7,7 @@ import asyncio
 import httpx
 
 from ..models import Posting
-from .base import clean, get_with_retry, parse_date
+from .base import clean, get_with_retry, is_anywhere, parse_date
 
 
 class ReedSource:
@@ -17,22 +17,21 @@ class ReedSource:
     BASE = "https://www.reed.co.uk/api/1.0/search"
     PAGE = 100  # Reed's maximum resultsToTake
 
-    def __init__(self, api_key: str, location: str = "London",
-                 distance_miles: int = 15, max_concurrency: int = 2):
+    def __init__(self, api_key: str, max_concurrency: int = 2):
         self.auth = (api_key, "")
-        self.location = location
-        self.distance = distance_miles
         self._sem = asyncio.Semaphore(max_concurrency)
 
     async def fetch(self, client: httpx.AsyncClient, keyword: str,
-                    max_results: int = 300) -> list[Posting]:
+                    max_results: int = 300, *, location: str,
+                    radius_miles: int) -> list[Posting]:
+        place = ({} if is_anywhere(location)
+                 else {"locationName": location, "distanceFromLocation": radius_miles})
         out: list[Posting] = []
         skip = 0
         while len(out) < max_results:
             params = {
                 "keywords": keyword,
-                "locationName": self.location,
-                "distanceFromLocation": self.distance,
+                **place,
                 "resultsToTake": self.PAGE,
                 "resultsToSkip": skip,
             }

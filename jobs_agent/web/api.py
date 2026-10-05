@@ -15,13 +15,21 @@ from typing import Any
 from ..extract import CvExtractError, extract_cv_text
 from ..letters import DraftError, draft_letter, redraft_letter
 from ..pipeline import fetch_and_store_sync
+from ..presets import PRESETS, get_preset
 from ..profile import (
     DEFAULT_PROFILE,
+    MAX_DOMAIN_ONLY_THRESHOLD,
+    MAX_RADIUS_MILES,
     ProfileError,
     format_lines,
+    format_locations,
+    format_salary_bands,
     format_weights,
     load_profile,
+    parse_int,
     parse_lines,
+    parse_locations,
+    parse_salary_bands,
     parse_weights,
     save_profile,
 )
@@ -140,6 +148,16 @@ def get_cv_file(store: Store, req: Request) -> File | Json:
 
 def get_profile(store: Store, req: Request) -> Json:
     return Json(_profile_as_text(load_profile(store)))
+
+
+def get_presets(store: Store, req: Request) -> Json:
+    """Every preset, in the same text form ``get_profile`` returns, so the
+    Profile page can load one into its editor for review before saving."""
+    return Json([
+        {"id": p.id, "label": p.label, "description": p.description,
+         "profile": _profile_as_text(p.profile)}
+        for p in PRESETS
+    ])
 
 
 # -- POST -----------------------------------------------------------------
@@ -358,17 +376,23 @@ def _profile_as_text(profile) -> dict[str, str]:
         "domain_terms": format_weights(profile.domain_terms),
         "title_blockers": format_lines(profile.title_blockers),
         "experience_blockers": format_lines(profile.experience_blockers),
+        "locations": format_locations(profile.locations),
+        "radius_miles": str(profile.radius_miles),
+        "salary_bands": format_salary_bands(profile.salary_bands),
+        "contract_bonus": str(profile.contract_bonus),
+        "domain_only_threshold": str(profile.domain_only_threshold),
+        "preset": profile.preset,
     }
 
 
 def _profile_from_text(payload: dict, *, base):
     """A copy of ``base`` with whichever sections the payload supplies.
 
-    ``name`` and ``location`` are carried over — they aren't edited here.
+    ``name`` is carried over — it isn't edited here.
     """
     from dataclasses import replace
 
-    changes: dict[str, Any] = {}
+    changes: dict[str, Any] = _search_settings_from_text(payload)
     if "target_titles" in payload:
         changes["target_titles"] = parse_weights(
             payload["target_titles"], what="Target titles")
@@ -380,6 +404,36 @@ def _profile_from_text(payload: dict, *, base):
     if "experience_blockers" in payload:
         changes["experience_blockers"] = parse_lines(payload["experience_blockers"])
     return replace(base, **changes)
+
+
+def _search_settings_from_text(payload: dict) -> dict[str, Any]:
+    """The search-area and scoring-knob fields the payload supplies, parsed
+    and range-checked."""
+    for key in ("locations", "radius_miles", "salary_bands", "contract_bonus",
+                "domain_only_threshold", "preset"):
+        if key in payload and not isinstance(payload[key], (str, type(None))):
+            raise ProfileError(f"{key}: expected text")
+    changes: dict[str, Any] = {}
+    if "locations" in payload:
+        changes["locations"] = parse_locations(payload["locations"])
+    if "radius_miles" in payload:
+        changes["radius_miles"] = parse_int(
+            payload["radius_miles"], what="Radius", lo=0, hi=MAX_RADIUS_MILES)
+    if "salary_bands" in payload:
+        changes["salary_bands"] = parse_salary_bands(payload["salary_bands"])
+    if "contract_bonus" in payload:
+        changes["contract_bonus"] = parse_int(
+            payload["contract_bonus"], what="Contract bonus", lo=-50, hi=50)
+    if "domain_only_threshold" in payload:
+        changes["domain_only_threshold"] = parse_int(
+            payload["domain_only_threshold"], what="Domain-only threshold",
+            lo=0, hi=MAX_DOMAIN_ONLY_THRESHOLD)
+    if "preset" in payload:
+        # Display-only: an id from a since-removed preset is dropped rather
+        # than refused, or a profile saved with it could never be saved again.
+        preset = payload["preset"] or ""
+        changes["preset"] = preset if get_preset(preset) else ""
+    return changes
 
 
 def _merge_proposal(base, proposal: dict):

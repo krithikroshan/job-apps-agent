@@ -16,7 +16,7 @@ from http.cookies import SimpleCookie
 
 import httpx
 
-from ..config import supabase_anon_key, supabase_url
+from ..config import supabase_api_key, supabase_url
 
 ACCESS_COOKIE = "sb_access_token"
 REFRESH_COOKIE = "sb_refresh_token"
@@ -50,7 +50,7 @@ class AuthResult:
 
 
 def _headers(access_token: str | None = None) -> dict[str, str]:
-    headers = {"apikey": supabase_anon_key(), "Content-Type": "application/json"}
+    headers = {"apikey": supabase_api_key(), "Content-Type": "application/json"}
     if access_token:
         headers["Authorization"] = f"Bearer {access_token}"
     return headers

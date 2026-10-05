@@ -466,6 +466,24 @@ el("btn-refresh").addEventListener("click", () => { setMessage(""); reload(); })
 el("f-location").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") { setMessage(""); loadQueue(); }
 });
+// Picking a suggestion from the datalist fires "change" without an Enter.
+el("f-location").addEventListener("change", () => { setMessage(""); loadQueue(); });
+
+/* The profile's search locations, offered as filter suggestions. */
+async function loadLocationOptions() {
+  try {
+    const res = await fetch("/api/profile");
+    if (!res.ok) return;
+    const { locations = "" } = await res.json();
+    el("f-location-options").innerHTML = locations.split(",")
+      .map((place) => place.trim())
+      .filter((place) => place && place.toLowerCase() !== "uk")
+      .map((place) => `<option value="${escapeHtml(place)}">`)
+      .join("");
+  } catch {
+    // Suggestions are a convenience; the free-text filter still works.
+  }
+}
 el("f-limit").addEventListener("change", () => { setMessage(""); loadQueue(); });
 el("f-min-score").addEventListener("change", () => { setMessage(""); loadQueue(); });
 el("f-min-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
@@ -483,7 +501,7 @@ async function fetchListings() {
       setMessage(data.error || "Fetch failed.", "error");
     } else {
       const skipped = (data.warnings || []).length
-        ? ` Skipped: ${data.warnings.join("; ")}.`
+        ? ` Note: ${data.warnings.join("; ")}.`
         : "";
       setMessage(
         `Fetched ${data.raw} postings, ${data.kept} passed filters — ${data.new} new, ${data.duplicates} duplicates suppressed.${skipped}`,
@@ -500,4 +518,5 @@ async function fetchListings() {
 
 el("btn-fetch").addEventListener("click", fetchListings);
 
+loadLocationOptions();
 reload();

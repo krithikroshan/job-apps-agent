@@ -7,24 +7,28 @@ import asyncio
 import httpx
 
 from ..models import Posting
-from .base import clean, get_with_retry, parse_date
+from .base import clean, get_with_retry, is_anywhere, parse_date
 
 
 class AdzunaSource:
     name = "adzuna"
     BASE = "https://api.adzuna.com/v1/api/jobs/gb/search"
     PAGE = 50
+    KM_PER_MILE = 1.609
 
-    def __init__(self, app_id: str, app_key: str, location: str = "London",
+    def __init__(self, app_id: str, app_key: str,
                  max_days_old: int = 21, max_concurrency: int = 2):
         self.app_id = app_id
         self.app_key = app_key
-        self.location = location
         self.max_days_old = max_days_old
         self._sem = asyncio.Semaphore(max_concurrency)
 
     async def fetch(self, client: httpx.AsyncClient, keyword: str,
-                    max_results: int = 300) -> list[Posting]:
+                    max_results: int = 300, *, location: str,
+                    radius_miles: int) -> list[Posting]:
+        # Adzuna's distance is in kilometres.
+        place = ({} if is_anywhere(location) else
+                 {"where": location, "distance": round(radius_miles * self.KM_PER_MILE)})
         out: list[Posting] = []
         page = 1
         while len(out) < max_results:
@@ -32,7 +36,7 @@ class AdzunaSource:
                 "app_id": self.app_id,
                 "app_key": self.app_key,
                 "what": keyword,
-                "where": self.location,
+                **place,
                 "results_per_page": self.PAGE,
                 "max_days_old": self.max_days_old,
                 "content-type": "application/json",

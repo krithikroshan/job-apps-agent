@@ -23,6 +23,15 @@ const FIELDS = {
   domain_terms: { kind: "weights", add: "Add a term" },
   title_blockers: { kind: "lines", add: "Add a blocker" },
   experience_blockers: { kind: "lines", add: "Add a blocker" },
+  salary_bands: { kind: "weights", add: "Add a band" },
+};
+
+/* Single-value search settings: profile text key -> input id. */
+const SETTINGS = {
+  locations: "locations",
+  radius_miles: "radius",
+  domain_only_threshold: "domain-only",
+  contract_bonus: "contract-bonus",
 };
 //: Chips shown before the list folds behind a "+ N more".
 const VISIBLE_CHIPS = 14;
@@ -33,6 +42,10 @@ const CV_HINT = 'A <code>.docx</code> or <code>.pdf</code>. The original file is
 //: field -> { items: [{term, weight}], expanded: bool }
 const state = {};
 let tab = "identity";
+//: The preset the editor was last filled from; saved with the profile.
+let currentPreset = "";
+//: [{id, label, description, profile}] from /api/presets.
+let presets = [];
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -148,6 +161,10 @@ function renderScoring() {
 }
 
 function fillProfile(profile) {
+  for (const [key, id] of Object.entries(SETTINGS)) el(id).value = profile[key] ?? "";
+  currentPreset = profile.preset || "";
+  if (currentPreset) el("preset-select").value = currentPreset;
+  showPresetDescription();
   for (const field of Object.keys(FIELDS)) {
     state[field] = {
       items: parseField(field, profile[field]),
@@ -158,10 +175,38 @@ function fillProfile(profile) {
 }
 
 function readProfile() {
-  const out = {};
+  const out = { preset: currentPreset };
+  for (const [key, id] of Object.entries(SETTINGS)) out[key] = el(id).value;
   for (const field of Object.keys(FIELDS)) out[field] = formatField(field);
   return out;
 }
+
+/* — presets — */
+
+function showPresetDescription() {
+  const preset = presets.find((p) => p.id === el("preset-select").value);
+  el("preset-description").textContent = preset ? preset.description : "";
+}
+
+function fillPresets(list) {
+  presets = list;
+  el("preset-select").innerHTML = presets
+    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)}</option>`)
+    .join("");
+  if (currentPreset) el("preset-select").value = currentPreset;
+  showPresetDescription();
+}
+
+el("preset-select").addEventListener("change", showPresetDescription);
+
+el("btn-load-preset").addEventListener("click", () => {
+  const preset = presets.find((p) => p.id === el("preset-select").value);
+  if (!preset) return;
+  if (!confirm(`Replace the editor's contents with "${preset.label}"? `
+               + "Nothing is saved until you click Save scoring profile.")) return;
+  fillProfile(preset.profile);
+  setMsg("profile-msg", `Loaded "${preset.label}". Review it, then save.`);
+});
 
 /* One delegated listener per block, wired once, covering both views. */
 for (const field of Object.keys(FIELDS)) {
@@ -240,10 +285,12 @@ function showCv(filename, chars) {
 }
 
 async function load() {
-  const [docsRes, profileRes] = await Promise.all([
+  const [docsRes, profileRes, presetsRes] = await Promise.all([
     fetch("/api/documents"),
     fetch("/api/profile"),
+    fetch("/api/presets"),
   ]);
+  fillPresets(presetsRes.ok ? await presetsRes.json() : []);
   const data = await docsRes.json();
   el("name").value = data.candidate_name || "";
   el("template").value = data.cover_letter_template || "";

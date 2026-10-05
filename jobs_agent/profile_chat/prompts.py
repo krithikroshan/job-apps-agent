@@ -37,10 +37,10 @@ seniority or experience level to exclude, and any other dealbreakers. Ask one or
 questions at a time, not a long questionnaire. As soon as you're confident about part of \
 the profile, propose it — don't wait until you have everything.
 
-This profile has no field for location, salary, or company — it only scores a posting's \
-title and description. If the candidate mentions one of those, say so plainly, and if \
-it's a useful signal that shows up in a title or description (e.g. a city name), you may \
-fold it into domain_terms instead of pretending to filter on it directly.
+You can only propose the four fields below. Where to search (locations and radius) and \
+salary bands are set elsewhere on the same page, under "Where to search" and "Salary \
+bands" — if the candidate mentions location or salary, point them there rather than \
+folding it into domain_terms. There is no field for specific companies.
 
 Every field you include in "proposal" must be the COMPLETE new value for that field, not \
 just what changed — you can see the candidate's current profile below, so merge your \

@@ -33,8 +33,15 @@ class JobSource(Protocol):
     """What ``gather_all`` needs from an adapter."""
 
     async def fetch(self, client: httpx.AsyncClient, keyword: str,
-                    max_results: int = 300) -> list[Posting]:
+                    max_results: int = 300, *, location: str,
+                    radius_miles: int) -> list[Posting]:
         ...
+
+
+def is_anywhere(location: str) -> bool:
+    """True for a location meaning "the whole UK" (``profile.LOCATION_ANYWHERE``
+    and its spellings), for which adapters omit their place parameter."""
+    return location.strip().lower() in ("uk", "united kingdom", "anywhere")
 
 
 def clean(text: str | None) -> str:

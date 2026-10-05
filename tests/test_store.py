@@ -52,6 +52,11 @@ def test_queue_filters_by_status_and_location(store):
     assert len(list(store.queue(status="approved"))) == 0
 
 
+def test_location_filter_ignores_case(store):
+    store.upsert([make_posting(score=50)])
+    assert len(list(store.queue(status="new", location="central london"))) == 1
+
+
 def test_queue_filters_by_compensation_range(store):
     # Distinct titles/descriptions so the soft-dedupe in upsert() doesn't
     # collapse these into one posting.

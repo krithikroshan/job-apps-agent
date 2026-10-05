@@ -70,6 +70,43 @@
   <section class="panel" id="panel-scoring" role="tabpanel" hidden>
     <div class="scoring-layout">
       <div class="scoring-fields">
+        <div class="block preset-block">
+          <h4>Start from a preset</h4>
+          <p class="hint">Loads a complete profile for a career field into the editor below.
+            Nothing is saved until you click <strong>Save scoring profile</strong>.</p>
+          <div class="preset-row">
+            <select class="input" id="preset-select" aria-label="Preset"></select>
+            <button class="btn btn-secondary" id="btn-load-preset">Load preset</button>
+          </div>
+          <p class="hint" id="preset-description"></p>
+        </div>
+
+        <div class="block">
+          <h4>Where to search</h4>
+          <p class="hint">Places sent to each job board, separated by commas. Use <code>UK</code>
+            to search anywhere. Every target title is searched in every place, so each extra
+            place multiplies the searches a fetch runs (at most 5 places).</p>
+          <div class="search-row">
+            <div class="field grow">
+              <label class="block-label" for="locations">Locations</label>
+              <input class="input" id="locations" type="text" list="uk-places"
+                     placeholder="e.g. London, Manchester, UK">
+            </div>
+            <div class="field">
+              <label class="block-label" for="radius">Radius (miles)</label>
+              <input class="input" id="radius" type="number" min="0" max="100" step="1">
+            </div>
+          </div>
+          <datalist id="uk-places">
+            <option value="UK"><option value="London"><option value="Manchester">
+            <option value="Birmingham"><option value="Leeds"><option value="Bristol">
+            <option value="Edinburgh"><option value="Glasgow"><option value="Liverpool">
+            <option value="Newcastle"><option value="Sheffield"><option value="Nottingham">
+            <option value="Cambridge"><option value="Oxford"><option value="Reading">
+            <option value="Cardiff"><option value="Belfast"><option value="Milton Keynes">
+          </datalist>
+        </div>
+
         <div class="block" data-field="target_titles" data-kind="weights">
           <h4>Target titles</h4>
           <p class="hint">Matched as a substring of the job title; only the best match counts,
@@ -85,7 +122,8 @@
 
         <div class="block" data-field="domain_terms" data-kind="weights">
           <h4>Domain terms</h4>
-          <p class="hint">Matched against title and description. These stack, capped at 30 so
+          <p class="hint">Matched against title and description, from the start of a word
+            (<code>tax</code> finds "taxation" but not "syntax"). These stack, capped at 30 so
             keyword-stuffed adverts can't dominate.</p>
           <div class="chips" data-chips></div>
           <details class="as-text">
@@ -93,6 +131,12 @@
             <p class="hint">One <code>term = weight</code> per line.</p>
             <textarea class="mono-box" rows="12" spellcheck="false" data-text></textarea>
           </details>
+          <div class="field inline-field">
+            <label class="block-label" for="domain-only">Keep a posting with no title match
+              if its domain terms reach</label>
+            <input class="input" id="domain-only" type="number" min="0" max="30" step="1">
+            <span class="hint">0 = a title match is required</span>
+          </div>
         </div>
 
         <div class="blocker-columns">
@@ -122,6 +166,24 @@
           </div>
         </div>
 
+        <div class="block" data-field="salary_bands" data-kind="weights">
+          <h4>Salary bands</h4>
+          <p class="hint">A posting's stated minimum salary earns the points of the highest band
+            it reaches; a <code>0</code> band catches everything below the others. Unstated
+            salaries score nothing either way.</p>
+          <div class="chips" data-chips></div>
+          <details class="as-text">
+            <summary>Edit as text</summary>
+            <p class="hint">One <code>amount = points</code> per line, e.g.
+              <code>30000 = 10</code> or <code>25k = 5</code>.</p>
+            <textarea class="mono-box" rows="5" spellcheck="false" data-text></textarea>
+          </details>
+          <div class="field inline-field">
+            <label class="block-label" for="contract-bonus">Points for contract or temp roles</label>
+            <input class="input" id="contract-bonus" type="number" min="-50" max="50" step="1">
+          </div>
+        </div>
+
         <div class="save-row">
           <button class="btn btn-primary" id="btn-save-profile">Save scoring profile</button>
           <button class="btn btn-secondary" id="btn-reset-profile">Reset to defaults</button>
@@ -146,7 +208,7 @@
 
         <div class="chat-input-row">
           <textarea id="chat-input" rows="2"
-                    placeholder="e.g. I want compliance analyst roles in London, nothing senior…"></textarea>
+                    placeholder="e.g. I want graduate audit roles in London, nothing senior…"></textarea>
           <button class="btn btn-primary" id="chat-send">Send</button>
         </div>
         <span class="saved-note" id="chat-msg"></span>

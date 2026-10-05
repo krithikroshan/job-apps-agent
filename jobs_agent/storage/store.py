@@ -125,7 +125,7 @@ class Store:
                  WHERE p.user_id = %s AND a.status = %s AND p.score >= %s"""
         params: list = [self.user_id, status, min_score]
         if location:
-            query += " AND p.location LIKE %s"
+            query += " AND p.location ILIKE %s"
             params.append(f"%{location}%")
         # A posting's pay is a range (salary_min/max), often with only one end
         # stated, so a comp filter checks for overlap against whichever end is

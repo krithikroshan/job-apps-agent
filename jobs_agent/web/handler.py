@@ -43,6 +43,7 @@ GET_ROUTES = {
     "/api/queue": api.get_queue,
     "/api/documents": api.get_documents,
     "/api/profile": api.get_profile,
+    "/api/presets": api.get_presets,
     "/api/cv/file": api.get_cv_file,
 }
 
