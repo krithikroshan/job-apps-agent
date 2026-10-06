@@ -32,6 +32,7 @@ Drafting additionally needs an AI provider key — the user's own, set on
 from __future__ import annotations
 
 import json
+import os
 from http.server import BaseHTTPRequestHandler
 from typing import Mapping
 from urllib.parse import parse_qs, urlparse
@@ -55,6 +56,19 @@ def is_cross_site(headers: Mapping[str, str]) -> bool:
     if origin is None:
         return False
     return urlparse(origin).netloc != headers.get("Host", "")
+
+
+def confirm_redirect_url(headers: Mapping[str, str]) -> str:
+    """Where Supabase's signup-confirmation email should send the user: this
+    deployment's /login page. ``APP_URL`` pins it; otherwise it comes from the
+    request (Vercel sets X-Forwarded-Proto). Supabase only honours URLs on the
+    project's Redirect URLs allowlist, so a spoofed Host can't redirect
+    anywhere else; it falls back to the project's Site URL."""
+    base = os.getenv("APP_URL", "").rstrip("/")
+    if not base:
+        scheme = headers.get("X-Forwarded-Proto", "http").split(",")[0].strip()
+        base = f"{scheme}://{headers.get('Host', '')}"
+    return f"{base}/login"
 
 
 #: path -> endpoint, per method. Adding an endpoint means one entry here and
@@ -105,13 +119,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send(self, body: bytes, content_type: str, status: int = 200,
               extra_headers: list[tuple[str, str]] | None = None) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        for name, value in (extra_headers or []):
-            self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            for name, value in (extra_headers or []):
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            # The browser hung up first (navigated away, reloaded). Normal;
+            # there's no one left to send the response to.
+            self.close_connection = True
 
     def _send_result(self, result, extra_headers: list[tuple[str, str]] | None = None) -> None:
         """Serialise whatever an endpoint returned."""
@@ -167,7 +186,8 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json", 400)
             return
         try:
-            session = auth.sign_up(email, password)
+            session = auth.sign_up(email, password,
+                                   redirect_to=confirm_redirect_url(self.headers))
         except auth.AuthError as e:
             self._send(json.dumps({"error": str(e)}).encode(), "application/json", 400)
             return

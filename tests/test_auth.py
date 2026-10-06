@@ -77,3 +77,66 @@ def test_the_server_refuses_a_cross_site_post_before_anything_else():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_a_browser_hanging_up_mid_response_is_not_an_error():
+    """Navigating away while a request is in flight closes the socket; the
+    server should shrug, not print a traceback."""
+    from jobs_agent.web.handler import Handler
+
+    class Gone:
+        def write(self, data):
+            raise BrokenPipeError(32, "Broken pipe")
+
+    h = Handler.__new__(Handler)
+    h.wfile = Gone()
+    h.request_version = "HTTP/1.1"
+    h.requestline = "GET / HTTP/1.1"
+    h.command = "GET"
+    h._headers_buffer = []
+    h.send_response = lambda *a, **k: None
+    h.send_header = lambda *a, **k: None
+    h.end_headers = lambda: None
+    h._send(b"hello", "text/plain")   # must not raise
+
+
+# -- email-confirmation redirect -------------------------------------------
+
+from jobs_agent.web.handler import confirm_redirect_url  # noqa: E402
+
+
+def test_confirmation_link_returns_to_this_deployments_login_page(monkeypatch):
+    monkeypatch.delenv("APP_URL", raising=False)
+    assert confirm_redirect_url(
+        {"Host": "job-apps-agent.vercel.app", "X-Forwarded-Proto": "https"}
+    ) == "https://job-apps-agent.vercel.app/login"
+    assert confirm_redirect_url({"Host": "127.0.0.1:8765"}) == "http://127.0.0.1:8765/login"
+
+
+def test_app_url_overrides_the_request_host(monkeypatch):
+    monkeypatch.setenv("APP_URL", "https://job-apps-agent.vercel.app/")
+    assert confirm_redirect_url({"Host": "evil.example"}) == \
+        "https://job-apps-agent.vercel.app/login"
+
+
+def test_sign_up_passes_the_redirect_to_supabase(monkeypatch):
+    from jobs_agent.web import auth
+
+    seen = {}
+
+    class Reply:
+        status_code = 200
+
+        def json(self):
+            return {"id": "u1"}  # confirmation required: no session yet
+
+    def fake_post(url, **kwargs):
+        seen["url"], seen["params"] = url, kwargs.get("params")
+        return Reply()
+
+    monkeypatch.setattr(auth.httpx, "post", fake_post)
+    monkeypatch.setattr(auth, "supabase_url", lambda: "https://x.supabase.co")
+    monkeypatch.setattr(auth, "supabase_api_key", lambda: "k")
+    assert auth.sign_up("a@b.c", "pw", redirect_to="https://app.example/login") is None
+    assert seen["url"] == "https://x.supabase.co/auth/v1/signup"
+    assert seen["params"] == {"redirect_to": "https://app.example/login"}

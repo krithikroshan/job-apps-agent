@@ -66,11 +66,13 @@ def _session_from(data: dict) -> Session:
     )
 
 
-def sign_up(email: str, password: str) -> Session | None:
+def sign_up(email: str, password: str, redirect_to: str | None = None) -> Session | None:
     """Create an account. Returns the new session, or ``None`` if the
-    project requires email confirmation before one is issued."""
+    project requires email confirmation before one is issued.
+    ``redirect_to`` is where the confirmation email's link lands."""
     r = httpx.post(f"{supabase_url()}/auth/v1/signup",
-                    headers=_headers(), json={"email": email, "password": password})
+                    headers=_headers(), json={"email": email, "password": password},
+                    params={"redirect_to": redirect_to} if redirect_to else None)
     data = r.json()
     if r.status_code >= 400:
         raise AuthError(data.get("msg") or data.get("error_description")
