@@ -237,6 +237,10 @@ transition otherwise, not just the UI.
 - Session cookies get the `Secure` flag only when `VERCEL` is set in the
   environment (see `web/auth.py`), so `serve`'s local `http://127.0.0.1`
   cookies stay usable; don't run this behind a real domain over plain HTTP.
+- `vercel.json` pins the functions to `sin1` (Singapore) because the Supabase
+  database is in `ap-southeast-1`: a page load makes dozens of database round
+  trips, and with Vercel's default US East region each one crossed the
+  Pacific. If the database moves, move the region with it.
 
 ## Next
 
