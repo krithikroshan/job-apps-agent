@@ -52,10 +52,26 @@
     <span class="saved-note" id="add-msg"></span>
   </section>
 
-  <section class="block" id="suggested-block" aria-labelledby="suggested-title" hidden>
-    <h2 class="block-title" id="suggested-title">Suggested for your field</h2>
-    <p class="hint">Firms that hire graduates in the field your profile's preset is set to.</p>
-    <ul class="suggested" id="suggested"></ul>
+  <section class="block" aria-labelledby="suggested-title">
+    <div class="block-head">
+      <h2 class="block-title" id="suggested-title">Suggested for you</h2>
+    </div>
+    <div class="ai-suggest">
+      <p class="hint">The AI reads your profile and CV and suggests employers that hire for
+        your target roles. Tick the ones you want and we'll find their careers sites.</p>
+      <button class="btn btn-secondary btn-sm" type="button" id="btn-ai-suggest">Suggest companies with AI</button>
+    </div>
+    <div id="ai-block" hidden>
+      <ul class="suggested ai-list" id="ai-suggestions"></ul>
+      <div class="ai-actions">
+        <button class="btn btn-primary btn-sm" type="button" id="btn-ai-ok">OK, find their careers sites</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-ai-cancel">Cancel</button>
+      </div>
+    </div>
+    <div id="suggested-block" hidden>
+      <p class="hint">Firms that hire graduates in the field your profile's preset is set to.</p>
+      <ul class="suggested" id="suggested"></ul>
+    </div>
   </section>
 </div>
 

@@ -79,6 +79,11 @@ def _scan(html: str) -> _PageScanner:
     return scanner
 
 
+def page_links(html: str) -> list[tuple[str, str]]:
+    """(link text, href as written) for every link on the page, in order."""
+    return _scan(html).links
+
+
 # --- JSON-LD traversal ---------------------------------------------------------
 
 def _types(node: dict) -> set[str]:

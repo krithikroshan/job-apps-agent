@@ -230,4 +230,131 @@ el("suggested").addEventListener("click", async (ev) => {
   }
 });
 
+
+/* -- AI suggestions ------------------------------------------------------- */
+
+//: [{name, why, website}] from the last suggestion, and whether OK is running.
+let aiSuggestions = [];
+let finding = false;
+
+function aiItem(s, i) {
+  const site = s.website
+    ? `<span class="company-host">${escapeHtml(s.website)}</span>` : "";
+  return `
+    <li class="suggestion" data-index="${i}">
+      <label class="check">
+        <input type="checkbox" checked>
+        <span class="company-main">
+          <span class="company-name">${escapeHtml(s.name)}</span>
+          ${s.why ? `<span class="ai-why">${escapeHtml(s.why)}</span>` : ""}
+          ${site}
+        </span>
+      </label>
+      <span class="ai-status" aria-live="polite"></span>
+    </li>`;
+}
+
+function renderAi() {
+  el("ai-block").hidden = !aiSuggestions.length;
+  el("ai-suggestions").innerHTML = aiSuggestions.map(aiItem).join("");
+  el("btn-ai-ok").disabled = !canAdd;
+}
+
+function aiRow(i) {
+  return el("ai-suggestions").querySelector(`[data-index="${i}"]`);
+}
+
+function setAiStatus(i, html, tone) {
+  const node = aiRow(i).querySelector(".ai-status");
+  node.className = "ai-status" + (tone ? ` ${tone}` : "");
+  node.innerHTML = html;
+}
+
+async function suggestWithAi() {
+  const btn = el("btn-ai-suggest");
+  btn.disabled = true;
+  btn.textContent = "Thinking…";
+  setMessage("");
+  try {
+    const { ok, data } = await post("/api/companies/suggest", {});
+    if (!ok) return setMessage(data.error || "Couldn't suggest companies.", "error");
+    aiSuggestions = data.suggestions || [];
+    if (!aiSuggestions.length) {
+      setMessage("The AI had no new companies to suggest. Try again, or adjust your profile.", "info");
+    }
+    renderAi();
+  } catch (e) {
+    setMessage("Lost contact with the server. Try again.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = aiSuggestions.length ? "Suggest different companies" : "Suggest companies with AI";
+  }
+}
+
+/* Find one ticked firm's careers site and watch it. Returns the added
+   company, or null (the row says why). */
+async function findOne(i) {
+  const s = aiSuggestions[i];
+  setAiStatus(i, "Finding their careers site…");
+  const { ok, status, data } = await post("/api/companies/find", { name: s.name, website: s.website });
+  if (ok && data.company) {
+    const how = data.via === "job board" ? `${data.company.ats_label} job board` : "careers page";
+    setAiStatus(i, `Added: ${escapeHtml(how)}`, "ok");
+    return data.company;
+  }
+  const why = (ok ? data.message : data.error) || "Couldn't add this company.";
+  // Out of searches for today stops the rest too; the caller checks.
+  setAiStatus(i, `${escapeHtml(why)}<br><button class="btn btn-ghost btn-sm" type="button"
+    data-by-hand="${i}">Add by hand</button>`, "err");
+  return status === 429 ? "stop" : null;
+}
+
+async function acceptAi() {
+  if (finding) return;
+  const rows = [...el("ai-suggestions").querySelectorAll(".suggestion")];
+  const picked = rows.filter((r) => r.querySelector("input").checked)
+    .map((r) => Number(r.dataset.index));
+  if (!picked.length) return setMessage("Tick at least one company first.", "info");
+  finding = true;
+  el("btn-ai-ok").disabled = true;
+  el("btn-ai-cancel").disabled = true;
+  rows.forEach((r) => { r.querySelector("input").disabled = true; });
+  const added = [];
+  try {
+    for (const [n, i] of picked.entries()) {
+      setMessage(`Finding careers sites… ${n + 1} of ${picked.length}`, "progress");
+      const result = await findOne(i);
+      if (result === "stop") break;
+      if (result) added.push(result);
+    }
+    await load();
+    // Read each new site straight away, as adding one by hand does.
+    for (const c of added) await check(c.id, c.name);
+    if (!added.length) setMessage("None of those companies could be added.", "error");
+  } catch (e) {
+    setMessage("Lost contact with the server. Try again.", "error");
+  } finally {
+    finding = false;
+    el("btn-ai-cancel").disabled = false;
+    el("btn-ai-cancel").textContent = "Done";
+  }
+}
+
+el("btn-ai-suggest").addEventListener("click", suggestWithAi);
+el("btn-ai-ok").addEventListener("click", acceptAi);
+el("btn-ai-cancel").addEventListener("click", () => {
+  aiSuggestions = [];
+  el("btn-ai-cancel").textContent = "Cancel";
+  renderAi();
+});
+
+el("ai-suggestions").addEventListener("click", (ev) => {
+  const button = ev.target.closest("[data-by-hand]");
+  if (!button) return;
+  ev.preventDefault();
+  el("company-name").value = aiSuggestions[Number(button.dataset.byHand)].name;
+  el("company-url").focus();
+  el("company-url").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
 load();

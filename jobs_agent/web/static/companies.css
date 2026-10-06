@@ -42,8 +42,25 @@
 .suggestion { justify-content: space-between; }
 .suggestion .company-host { flex: 1; }
 
+/* AI suggestions: a checklist, then each line says how finding its site went. */
+.ai-suggest { display: flex; align-items: center; justify-content: space-between;
+              gap: var(--space-4); }
+.ai-list .suggestion { align-items: flex-start; }
+.ai-list .check { align-items: flex-start; flex: 1; min-width: 0; cursor: pointer; }
+.ai-list .check input { margin-top: 3px; flex: none; }
+.ai-why { font-size: 13.5px; color: var(--color-neutral-700); font-weight: 400; }
+.ai-status { flex: none; font-size: 13px; color: var(--color-neutral-600); text-align: right;
+             max-width: 45%; }
+.ai-status.ok { color: var(--color-accent-700); }
+.ai-status.err { color: var(--color-negative); }
+.ai-status .btn { margin-top: 4px; }
+.ai-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+
 @media (max-width: 640px) {
   .add-form { grid-template-columns: 1fr; }
   .company { flex-wrap: wrap; }
   .company-actions { width: 100%; }
+  .ai-suggest { flex-direction: column; align-items: flex-start; }
+  .ai-list .suggestion { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .ai-status { flex: initial; max-width: none; text-align: left; padding-left: 24px; }
 }

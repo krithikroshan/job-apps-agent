@@ -110,6 +110,8 @@ POST_ROUTES = {
     "/api/companies": api_companies.post_company,
     "/api/companies/delete": api_companies.post_company_delete,
     "/api/companies/check": api_companies.post_company_check,
+    "/api/companies/suggest": api_companies.post_company_suggest,
+    "/api/companies/find": api_companies.post_company_find,
 }
 
 

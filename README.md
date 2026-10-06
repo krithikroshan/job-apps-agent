@@ -25,6 +25,7 @@ cp .env.example .env    # then fill it in, or export the keys directly
 | `JOOBLE_API_KEY` | fetching (optional) | https://jooble.org/api/about |
 | `CAREERJET_API_KEY` (+ optional `CAREERJET_USER_IP`) | fetching (optional) | https://www.careerjet.co.uk/partners/api |
 | `JOBS_AGENT_COMPANY_CHECKS_PER_DAY` | optional cap on company-site checks per user (default 60) | |
+| `JOBS_AGENT_COMPANY_FINDS_PER_DAY` | optional cap on careers-site searches for suggested companies per user (default 30) | |
 | `APP_ENCRYPTION_KEY` | users saving AI keys on /settings | `python -m jobs_agent gen-key` |
 | `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY` | optional server-wide AI keys, used by anyone without their own | each provider's console (linked from /settings) |
 | `JOBS_AGENT_GEMINI_MODEL` | optional default Gemini model | defaults to `gemini-3.6-flash` |
@@ -63,7 +64,12 @@ pages:
   and the scoring profile: a career preset to start from, where to search,
   and how postings are scored.
 - **Companies** (`/companies`) — firms whose own careers sites to read: add
-  a careers link, or one of the suggestions for your field.
+  a careers link, pick one of the suggestions for your field, or have the AI
+  suggest employers from your profile and CV. For the ones you tick, the app
+  finds the careers site itself: it reads the firm's homepage, follows its
+  careers link and takes the job board behind it (Workday, Greenhouse, ...)
+  where there is one. Sites that block automated readers have to be added
+  by hand.
 - **Settings** (`/settings`) — AI providers (Gemini, OpenAI, Claude,
   OpenRouter): your own API key for each, the order they're tried in, and
   the model to use. "Test" checks a key by listing its models.
