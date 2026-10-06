@@ -18,7 +18,9 @@ from ..profile import Profile
 from .prompts import system_instruction
 
 TEMPERATURE = 0.4
-MAX_OUTPUT_TOKENS = 1024
+#: A proposal restates each field it changes in full (dozens of weighted
+#: terms), so it needs room; the limit only costs what's actually used.
+MAX_OUTPUT_TOKENS = 8192
 
 WEIGHT_FIELDS = ("target_titles", "domain_terms")
 LIST_FIELDS = ("title_blockers", "experience_blockers")

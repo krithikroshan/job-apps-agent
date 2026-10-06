@@ -99,3 +99,11 @@ def test_a_provider_failure_is_a_chat_error():
 def test_json_with_chatter_around_it_is_still_parsed():
     result = turn('Sure! Here it is:\n{"reply": "ok", "proposal": null}\nHope that helps.')
     assert result == {"reply": "ok", "proposal": None}
+
+
+def test_a_full_profile_proposal_has_room_to_finish():
+    """A proposal restates whole fields; ~70 weighted terms plus the reply
+    overran 1024 tokens and came back cut off."""
+    client = FakeClient('{"reply": "ok", "proposal": null}')
+    chat_turn(client, PROFILE, [], "hello")
+    assert client.calls[0]["max_tokens"] >= 8000

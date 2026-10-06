@@ -13,6 +13,9 @@ from ..profile_chat import ChatError, parse_reply
 CV_CHARS = 8000
 #: How many shortlisted and rejected titles to learn from.
 HISTORY_TITLES = 40
+#: Room for a whole profile restated as JSON plus the explanation; the
+#: limit only costs what's actually used.
+MAX_OUTPUT_TOKENS = 8192
 MIN_DECISIONS = 3
 
 SYSTEM = """You improve a job seeker's scoring profile for a UK job-search tool.
@@ -82,7 +85,7 @@ def suggest_profile(client: Client, profile: Profile, *, source: str, cv: str = 
         raise SuggestError(f"unknown suggestion source {source!r}")
     try:
         text = client.complete(SYSTEM, [Message("user", prompt)], temperature=0.3,
-                               max_tokens=2048, json_mode=True)
+                               max_tokens=MAX_OUTPUT_TOKENS, json_mode=True)
         return parse_reply(text)
     except (LLMError, ChatError) as e:
         raise SuggestError(f"Couldn't make a suggestion: {e}") from e

@@ -187,3 +187,10 @@ def test_retrying_gives_failed_postings_another_go(store, client):
     res = api_ai.post_analyse_retry(store, req())
     assert res.status == 200
     assert res.body == {"remaining": 1, "analysed": 0, "failed": 0}
+
+
+def test_profile_suggestions_have_room_for_a_whole_profile(store, client):
+    store.set_document(DOC_CV, "BSc Accounting and Finance.")
+    stub = client(json.dumps(PROPOSAL))
+    api_ai.post_suggest_profile(store, req(source="cv"))
+    assert stub.calls[0]["max_tokens"] >= 8000
