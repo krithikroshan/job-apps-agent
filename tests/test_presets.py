@@ -70,3 +70,26 @@ def test_every_preset_fits_one_fetch_without_dropping_titles(preset):
 def test_presets_narrow_adzuna_to_their_field():
     assert get_preset("accounting_graduate").profile.job_category == "accounting"
     assert get_preset("law_compliance").profile.job_category == "legal"
+
+
+@pytest.mark.parametrize("description", [
+    "A three-year training contract with full support to become ACA qualified.",
+    "Over three years you'll study for the ACA and become a fully qualified Chartered Accountant.",
+    "Graduates join in September; by the end you'll be newly qualified.",
+])
+def test_accounting_preset_keeps_graduate_schemes_that_describe_qualifying(description):
+    profile = get_preset("accounting_graduate").profile
+    p = score(make_posting(title="Audit Graduate Programme 2027", description=description), profile)
+    assert p.score > 0, p.score_reasons
+
+
+@pytest.mark.parametrize("description", [
+    "You must be ACA qualified with experience of audit.",
+    "Candidates will have at least 3 years' experience in practice.",
+    "Minimum of three years' post-qualification experience required.",
+    "You must be fully qualified (ACA/ACCA).",
+])
+def test_accounting_preset_still_drops_roles_that_require_qualification_or_experience(description):
+    profile = get_preset("accounting_graduate").profile
+    p = score(make_posting(title="Assistant Accountant", description=description), profile)
+    assert p.score == -1
