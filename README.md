@@ -22,6 +22,9 @@ cp .env.example .env    # then fill it in, or export the keys directly
 | `SUPABASE_PUBLISHABLE_KEY` | signup/login | Supabase project -> Settings -> API Keys -> Publishable key (the legacy `SUPABASE_ANON_KEY` also works) |
 | `REED_API_KEY` | fetching | https://www.reed.co.uk/developers/jobseeker |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | fetching | https://developer.adzuna.com/ |
+| `JOOBLE_API_KEY` | fetching (optional) | https://jooble.org/api/about |
+| `CAREERJET_API_KEY` (+ optional `CAREERJET_USER_IP`) | fetching (optional) | https://www.careerjet.co.uk/partners/api |
+| `JOBS_AGENT_COMPANY_CHECKS_PER_DAY` | optional cap on company-site checks per user (default 60) | |
 | `APP_ENCRYPTION_KEY` | users saving AI keys on /settings | `python -m jobs_agent gen-key` |
 | `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY` | optional server-wide AI keys, used by anyone without their own | each provider's console (linked from /settings) |
 | `JOBS_AGENT_GEMINI_MODEL` | optional default Gemini model | defaults to `gemini-3.6-flash` |
@@ -59,9 +62,25 @@ pages:
 - **Profile** (`/documents`) — your name, your CV, an example cover letter,
   and the scoring profile: a career preset to start from, where to search,
   and how postings are scored.
+- **Companies** (`/companies`) — firms whose own careers sites to read: add
+  a careers link, or one of the suggestions for your field.
 - **Settings** (`/settings`) — AI providers (Gemini, OpenAI, Claude,
   OpenRouter): your own API key for each, the order they're tried in, and
   the model to use. "Test" checks a key by listing its models.
+
+**Job sources.** "Fetch new listings" searches every job board with a key —
+Reed, Adzuna (narrowed by the profile's job category), Jooble and Careerjet —
+then reads each watched company's careers site that's due (every 12 hours,
+one company per request so no request runs long). Company sites are read
+through their applicant-tracking system's public job feed where there is one
+(Workday, Greenhouse, Lever, Ashby, SmartRecruiters — detected from the
+link), otherwise from the schema.org JobPosting data on the page or the job
+links it lists. Only UK roles whose titles look relevant are kept, and then
+scored, deduplicated and analysed like everything else. Every address is
+checked before it's fetched (no private or internal hosts, on every
+redirect), each site gets at most one request a second, and every fetch has
+a time and size limit. Sites that only show jobs with JavaScript can't be
+read; their Workday or Greenhouse link usually can.
 
 **AI analysis.** After a fetch, the queue page has the AI read the top 150
 postings by keyword score, six per request (`jobs_agent/analysis/`), against
@@ -144,6 +163,8 @@ jobs_agent/
   pipeline.py     fetch -> score -> dedupe -> store, shared by CLI and web
   cli.py          argument parsing and console output only
   sources/        one module per job board, over a shared HTTP base
+  careers/        company careers sites: safe fetching, ATS detection, adapters
+  companies/      the watchlist: checking a company, suggested firms
   storage/        schema.sql and the Postgres Store (every table user_id-scoped)
   extract/        .docx / .pdf -> plain text
   letters/        drafting prompts, and the model call that runs them
@@ -162,11 +183,13 @@ functions of `(store, request)` so they can be tested without a socket.
 
 ## Design decisions worth arguing with
 
-**APIs, not scraping.** Reed and Adzuna publish documented UK job APIs.
-Scraping LinkedIn or Indeed would breach their terms, risk the account,
-break on every layout change, and force regex parsing of salary out of HTML.
-Between them these two APIs cover most agency-posted London contract listings.
-LinkedIn stays a manual channel.
+**APIs first, scraping only where it's the employer's own site.** Reed,
+Adzuna, Jooble and Careerjet publish documented job APIs, and most employer
+careers sites run on an applicant-tracking system with a public job feed.
+Only when neither exists does the app read a careers page's HTML, and then
+only the pages a user pointed it at. Scraping LinkedIn or Indeed would breach
+their terms and break on every layout change; LinkedIn stays a manual
+channel.
 
 **Deterministic scoring first, an LLM second.** Every keyword score carries its
 reasons, so when something irrelevant ranks high you can see which weight
@@ -201,7 +224,8 @@ transition otherwise, not just the UI.
 - Reed's and Adzuna's field names have changed before. Verify against their
   current docs on first run; each adapter is a single small module for that
   reason.
-- Coverage excludes roles posted only on firm career pages or LinkedIn.
+- Coverage excludes LinkedIn, and careers sites that only render jobs with
+  JavaScript and have no job feed.
 - The law preset's `title_blockers` include `counsel`, which will also drop
   legitimate "Legal Counsel Assistant" roles; the accounting preset's
   `qualified accountant` also drops "Part Qualified Accountant". Edit them on
