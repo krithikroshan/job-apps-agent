@@ -93,3 +93,38 @@ def test_accounting_preset_still_drops_roles_that_require_qualification_or_exper
     profile = get_preset("accounting_graduate").profile
     p = score(make_posting(title="Assistant Accountant", description=description), profile)
     assert p.score == -1
+
+
+def test_paralegal_preset_searches_only_paralegal_roles_in_london():
+    profile = get_preset("paralegal_london").profile
+    assert profile.locations == ["London"]
+    assert profile.job_category == "legal"
+    assert all("paralegal" in t for t in profile.target_titles)
+    assert score(make_posting(title="Legal Assistant"), profile).score == -1
+    assert score(make_posting(title="Compliance Analyst"), profile).score == -1
+
+
+@pytest.mark.parametrize("title,description", [
+    ("Paralegal", "Ideal for a recent law graduate (LLB or GDL)."),
+    ("Graduate Paralegal - Litigation", "No experience required; full training given."),
+    ("Junior Paralegal", "At least 6 months' experience in a law firm is preferred."),
+    ("Paralegal", "You will have 1 year's experience in a legal environment."),
+    ("Document Review Paralegal (Contract)", "Six month contract; counts towards SQE QWE."),
+])
+def test_paralegal_preset_keeps_graduate_and_junior_paralegal_roles(title, description):
+    profile = get_preset("paralegal_london").profile
+    p = score(make_posting(title=title, description=description), profile)
+    assert p.score > 0, p.score_reasons
+
+
+@pytest.mark.parametrize("title,description", [
+    ("Senior Paralegal", ""),
+    ("Paralegal Team Leader", ""),
+    ("Experienced Paralegal", ""),
+    ("Paralegal", "You will have at least 2 years' experience as a paralegal."),
+    ("Paralegal", "Minimum of three years' experience in commercial property."),
+    ("Paralegal", "Suitable for a qualified solicitor seeking a career change."),
+])
+def test_paralegal_preset_drops_senior_and_experienced_roles(title, description):
+    profile = get_preset("paralegal_london").profile
+    assert score(make_posting(title=title, description=description), profile).score == -1

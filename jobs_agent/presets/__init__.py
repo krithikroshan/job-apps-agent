@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..profile import Profile
-from . import accounting_graduate, law_compliance
+from . import accounting_graduate, law_compliance, paralegal_london
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class Preset:
 
 PRESETS: tuple[Preset, ...] = tuple(
     Preset(id=m.PROFILE.preset, label=m.LABEL, description=m.DESCRIPTION, profile=m.PROFILE)
-    for m in (accounting_graduate, law_compliance)
+    for m in (accounting_graduate, law_compliance, paralegal_london)
 )
 
 _BY_ID = {p.id: p for p in PRESETS}

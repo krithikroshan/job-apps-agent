@@ -33,6 +33,7 @@ SUGGESTED: dict[str, list[tuple[str, str]]] = {
         ("Saffery", "https://saffery.kallidusrecruit.com/Search.aspx"),
     ],
     "law_compliance": [],
+    "paralegal_london": [],
 }
 
 

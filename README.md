@@ -1,9 +1,9 @@
 # jobs-agent
 
 Application pipeline for UK job hunting: fetch, score, deduplicate, draft,
-and stage into a review queue. Ships with presets for graduate accounting
-and for London legal and compliance roles; any field works once its scoring
-profile is set.
+and stage into a review queue. Ships with presets for graduate accounting,
+London legal and compliance roles, and London paralegal roles; any field
+works once its scoring profile is set.
 
 **Nothing here submits an application.** A human approves and submits.
 
