@@ -1,12 +1,14 @@
 """Shared plumbing for job-board adapters.
 
-Both Reed and Adzuna publish free, documented APIs for UK listings. We use
+Every board here publishes a free, documented API for UK listings. We use
 those rather than scraping: no browser automation, no ToS breach, no account
 ban risk, and structured salary and contract-type fields instead of regex over
 HTML.
 
-Reed:   https://www.reed.co.uk/developers/jobseeker
-Adzuna: https://developer.adzuna.com/
+Reed:      https://www.reed.co.uk/developers/jobseeker
+Adzuna:    https://developer.adzuna.com/
+Jooble:    https://jooble.org/api/about
+Careerjet: https://www.careerjet.com/partners/api
 
 Verify parameter names against those docs before first run — both APIs have
 changed field names in the past. Each adapter is a separate module so a
@@ -51,11 +53,24 @@ def clean(text: str | None) -> str:
     return html.unescape(_TAGS.sub(" ", text)).strip()
 
 
+#: A date far from any single-digit field, to measure how long ``fmt`` renders.
+_SAMPLE = datetime(2000, 10, 10, 10, 10, 10)
+
+
+def clean_line(text: str | None) -> str:
+    """:func:`clean`, then whitespace collapsed — for one-line fields like
+    titles, where aggregators wrap the matched keyword in ``<b>`` tags."""
+    return " ".join(clean(text).split())
+
+
 def parse_date(value: str | None, fmt: str) -> Optional[date]:
+    """The date in the prefix of ``value`` that ``fmt`` describes; anything
+    after it (seconds fractions, "Z", an offset) is ignored. Boards append
+    those inconsistently, and only the day matters here."""
     if not value:
         return None
     try:
-        return datetime.strptime(value[: len(fmt.replace("%", "")) + 6], fmt).date()
+        return datetime.strptime(value[: len(_SAMPLE.strftime(fmt))], fmt).date()
     except (ValueError, TypeError):
         return None
 
@@ -63,8 +78,14 @@ def parse_date(value: str | None, fmt: str) -> Optional[date]:
 async def get_with_retry(client: httpx.AsyncClient, url: str, *,
                          max_retries: int = 5, **kwargs) -> httpx.Response:
     """GET with exponential backoff on 429, honoring Retry-After when present."""
+    return await request_with_retry(client, "GET", url, max_retries=max_retries, **kwargs)
+
+
+async def request_with_retry(client: httpx.AsyncClient, method: str, url: str, *,
+                             max_retries: int = 5, **kwargs) -> httpx.Response:
+    """Any request, with :func:`get_with_retry`'s backoff on 429."""
     for attempt in range(max_retries + 1):
-        r = await client.get(url, **kwargs)
+        r = await client.request(method, url, **kwargs)
         if r.status_code == 429 and attempt < max_retries:
             retry_after = r.headers.get("Retry-After")
             delay = float(retry_after) if retry_after else min(2 ** attempt, 30)

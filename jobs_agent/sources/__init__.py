@@ -16,11 +16,15 @@ import httpx
 from ..models import Posting
 from .adzuna import AdzunaSource
 from .base import JobSource
+from .careerjet import CareerjetSource
+from .jooble import JoobleSource
 from .reed import ReedSource
 
 __all__ = [
     "AdzunaSource",
+    "CareerjetSource",
     "JobSource",
+    "JoobleSource",
     "NoSourcesConfigured",
     "ReedSource",
     "build_sources",
@@ -59,10 +63,23 @@ def build_sources(job_category: str = "") -> tuple[list[JobSource], list[str]]:
     else:
         warnings.append("ADZUNA_APP_ID/KEY not set — skipping Adzuna")
 
+    jooble_key = os.getenv("JOOBLE_API_KEY")
+    if jooble_key:
+        sources.append(JoobleSource(jooble_key))
+    else:
+        warnings.append("JOOBLE_API_KEY not set — skipping Jooble")
+
+    careerjet_key = os.getenv("CAREERJET_API_KEY")
+    if careerjet_key:
+        sources.append(CareerjetSource(
+            careerjet_key, user_ip=os.getenv("CAREERJET_USER_IP") or "127.0.0.1"))
+    else:
+        warnings.append("CAREERJET_API_KEY not set — skipping Careerjet")
+
     if not sources:
         raise NoSourcesConfigured(
-            "No job boards are configured. Set REED_API_KEY, or "
-            "ADZUNA_APP_ID and ADZUNA_APP_KEY, and retry."
+            "No job boards are configured. Set REED_API_KEY, ADZUNA_APP_ID and "
+            "ADZUNA_APP_KEY, JOOBLE_API_KEY, or CAREERJET_API_KEY, and retry."
         )
     return sources, warnings
 
