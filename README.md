@@ -17,7 +17,7 @@ cp .env.example .env    # then fill it in, or export the keys directly
 
 | Variable | Needed for | Where |
 |---|---|---|
-| `DATABASE_URL` | everything | Supabase project -> Settings -> Database -> Connection string |
+| `DATABASE_URL` | everything | Supabase project -> Settings -> Database -> Connection string. On Vercel use the transaction pooler (port 6543); the session pooler (5432) allows only 15 clients in total. Tests need 5432. |
 | `SUPABASE_URL` | signup/login | Supabase project -> Settings -> API -> Project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | signup/login | Supabase project -> Settings -> API Keys -> Publishable key (the legacy `SUPABASE_ANON_KEY` also works) |
 | `REED_API_KEY` | fetching | https://www.reed.co.uk/developers/jobseeker |

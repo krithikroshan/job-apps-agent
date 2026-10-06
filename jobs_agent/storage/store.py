@@ -386,9 +386,13 @@ def open_store(dsn: str | None = None, *, user_id: str,
 
 _POOLS: dict[str, ConnectionPool] = {}
 _POOLS_LOCK = threading.Lock()
-#: Enough for a page's handful of parallel API calls; Supabase's free tier
-#: allows far more connections than one server process needs.
-POOL_MAX = 8
+#: Supabase's session pooler (port 5432) allows only 15 clients in total,
+#: shared by every Vercel instance, a local server and the tests, so each
+#: process keeps few and lets idle ones go. (Its transaction pooler, port
+#: 6543, multiplexes clients and suits serverless better; see README.)
+POOL_MAX = 3
+#: Seconds an unused connection stays open before the pool closes it.
+POOL_MAX_IDLE = 60
 
 
 def _pool(dsn: str) -> ConnectionPool:
@@ -396,8 +400,11 @@ def _pool(dsn: str) -> ConnectionPool:
         pool = _POOLS.get(dsn)
         if pool is None:
             pool = ConnectionPool(
-                dsn, min_size=1, max_size=POOL_MAX, open=True,
-                kwargs={"row_factory": dict_row},
+                dsn, min_size=0, max_size=POOL_MAX, max_idle=POOL_MAX_IDLE,
+                open=True,
+                # No server-side prepared statements: a transaction pooler
+                # hands each transaction to whichever backend is free.
+                kwargs={"row_factory": dict_row, "prepare_threshold": None},
                 # A connection the database dropped while idle is replaced
                 # rather than handed to a request.
                 check=ConnectionPool.check_connection,

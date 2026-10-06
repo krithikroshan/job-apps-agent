@@ -45,3 +45,24 @@ def test_a_failed_request_does_not_poison_the_pooled_connection():
         pass
     with open_store(user_id=str(uuid4())) as b:
         assert b.get_document("cv") == ""
+
+
+def test_the_pool_stays_small_and_lets_idle_connections_go():
+    """Supabase's session pooler allows 15 clients across every process
+    (each Vercel instance, a local server, tests): a process must not sit
+    on a handful of idle connections."""
+    from jobs_agent.config import database_url
+
+    pool = store_mod._pool(database_url())
+    assert pool.max_size <= 3
+    assert pool.min_size == 0
+    assert pool.max_idle <= 60
+
+
+def test_pooled_connections_work_through_a_transaction_pooler():
+    """Supabase's transaction pooler (port 6543) can't keep prepared
+    statements between transactions, so the pool must not create them."""
+    from jobs_agent.config import database_url
+
+    with store_mod._pool(database_url()).connection() as conn:
+        assert conn.prepare_threshold is None
