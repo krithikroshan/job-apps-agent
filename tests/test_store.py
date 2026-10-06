@@ -27,13 +27,14 @@ def test_a_heavily_rewritten_body_is_not_suppressed(store):
     """Below the threshold it counts as a new posting -- the soft key alone
     isn't enough to merge two roles."""
     store.upsert([make_posting()])
-    rewritten = make_posting(description="Drafting contracts for a retail client.")
+    rewritten = make_posting(source_id="2", description="Drafting contracts for a retail client.")
     assert store.upsert([rewritten]) == (1, 0)
 
 
 def test_a_genuinely_different_role_is_kept(store):
     store.upsert([make_posting()])
-    other = make_posting(title="Paralegal", description="Bundling and disclosure work.")
+    other = make_posting(source_id="2", title="Paralegal",
+                         description="Bundling and disclosure work.")
     assert store.upsert([other]) == (1, 0)
 
 
@@ -143,3 +144,36 @@ def test_data_is_isolated_between_users(store):
         assert other.get_file("cv") is None
     finally:
         other.close()
+
+
+def test_the_same_source_id_is_a_duplicate_even_with_a_new_description(store):
+    """A careers posting's source_id is a hash of its URL: re-read in a
+    later check, perhaps now with a description, it's the same job."""
+    first = make_posting(source="careers", source_id="abc123", description="")
+    again = make_posting(source="careers", source_id="abc123",
+                         description="A full description that the listing page now shows.")
+    assert store.upsert([first]) == (1, 0)
+    assert store.upsert([again]) == (0, 1)
+
+
+def test_the_same_source_id_from_another_source_is_not_a_duplicate(store):
+    store.upsert([make_posting(source="careers", source_id="abc123")])
+    other = make_posting(source="reed", source_id="abc123", title="Paralegal",
+                         description="Bundling and disclosure work.")
+    assert store.upsert([other]) == (1, 0)
+
+
+def test_a_missing_source_id_never_matches(store):
+    # Some boards omit ids; "None" and "" mustn't make every such job one job.
+    store.upsert([make_posting(source="jooble", source_id="None")])
+    other = make_posting(source="jooble", source_id="None", title="Paralegal",
+                         description="Bundling and disclosure work.")
+    assert store.upsert([other]) == (1, 0)
+
+
+def test_the_source_id_lookup_is_indexed(store):
+    row = store.conn.execute(
+        "SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() "
+        "AND tablename = 'postings' AND indexdef LIKE '%%(user_id, source, source_id)%%'"
+    ).fetchone()
+    assert row is not None

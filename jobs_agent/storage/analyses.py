@@ -99,19 +99,27 @@ class AnalysisStore:
                               (f"{self.user_id}:{name}",))
             self.conn.commit()
 
-    def take_ai_call(self, daily_cap: int) -> bool:
-        """Count one server-key AI call for today, unless the cap is
-        already reached. Atomic, so parallel requests can't overshoot."""
-        day = datetime.now(timezone.utc).date().isoformat()
+    def take_quota(self, kind: str, cap: int) -> bool:
+        """Count one use of this user's daily ``kind`` budget (UTC day),
+        unless ``cap`` is already reached. Atomic, so parallel requests
+        can't overshoot. Every kind shares the ai_usage table, its ``day``
+        column holding ``"<kind>:<date>"``."""
+        day = f"{kind}:{datetime.now(timezone.utc).date().isoformat()}"
         row = self.conn.execute(
-            """INSERT INTO ai_usage (user_id, day, calls) VALUES (%s, %s, 1)
+            """INSERT INTO ai_usage (user_id, day, calls)
+               SELECT %s, %s, 1 WHERE %s > 0
                ON CONFLICT (user_id, day) DO UPDATE SET calls = ai_usage.calls + 1
                  WHERE ai_usage.calls < %s
                RETURNING calls""",
-            (self.user_id, day, daily_cap),
+            (self.user_id, day, cap, cap),
         ).fetchone()
         self.conn.commit()
-        return row is not None and row["calls"] <= daily_cap
+        return row is not None and row["calls"] <= cap
+
+    def take_ai_call(self, daily_cap: int) -> bool:
+        """Count one server-key AI call for today, unless the cap is
+        already reached."""
+        return self.take_quota("ai", daily_cap)
 
     def get_analysis(self, key: str) -> DictRow | None:
         return self.conn.execute(

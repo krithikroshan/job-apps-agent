@@ -3,6 +3,7 @@ one Supabase Auth user at a time."""
 
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -10,11 +11,13 @@ from typing import Iterable, Iterator
 
 import psycopg
 from psycopg import sql
+from psycopg_pool import ConnectionPool
 from psycopg.rows import DictRow, dict_row
 
 from ..config import database_url
 from ..models import Posting
 from .analyses import MATCH_SQL, AIFilters, AnalysisStore, match_score
+from .companies import CompanyStore
 
 __all__ = ["AIFilters", "Store", "match_score", "open_store"]
 
@@ -30,8 +33,24 @@ DOC_SCORING_PROFILE = "scoring_profile"
 DOC_LLM_SETTINGS = "llm_settings"
 
 
-class Store(AnalysisStore):
-    def __init__(self, dsn: str | None = None, *, user_id: str, schema: str | None = None):
+#: (dsn, schema) pairs whose tables this process has already created. The
+#: schema is all CREATE ... IF NOT EXISTS, but each statement is a round
+#: trip, and against a remote database that made every request a second
+#: slower.
+_SCHEMA_READY: set[tuple[str, str | None]] = set()
+_SCHEMA_LOCK = threading.Lock()
+
+
+def _apply_schema(cur) -> None:
+    for statement in SCHEMA_PATH.read_text().split(";"):
+        statement = statement.strip()
+        if statement:
+            cur.execute(statement)
+
+
+class Store(AnalysisStore, CompanyStore):
+    def __init__(self, dsn: str | None = None, *, user_id: str, schema: str | None = None,
+                 conn: psycopg.Connection | None = None):
         """Connect to Postgres, scoped to ``user_id`` (a Supabase Auth user
         id). Every read and write this Store makes is filtered to, or
         tagged with, that user — the one place data segregation between
@@ -40,24 +59,30 @@ class Store(AnalysisStore):
         ``schema`` isolates the tables under their own schema (rather than
         ``public``) instead of a separate database — used by tests to run in
         isolation against the same Supabase instance.
+
+        ``conn`` is a connection to borrow (from :func:`open_store`'s pool);
+        it's left open on :meth:`close`.
         """
         self.user_id = user_id
         self.schema = schema
-        self.conn = psycopg.connect(dsn or database_url(), row_factory=dict_row)
+        dsn = dsn or database_url()
+        self._owns_conn = conn is None
+        self.conn = conn or psycopg.connect(dsn, row_factory=dict_row)
         with self.conn.cursor() as cur:
             if schema:
                 cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}")
                             .format(sql.Identifier(schema)))
                 cur.execute(sql.SQL("SET search_path TO {}")
                             .format(sql.Identifier(schema)))
-            for statement in SCHEMA_PATH.read_text().split(";"):
-                statement = statement.strip()
-                if statement:
-                    cur.execute(statement)
+            with _SCHEMA_LOCK:
+                if (dsn, schema) not in _SCHEMA_READY:
+                    _apply_schema(cur)
+                    _SCHEMA_READY.add((dsn, schema))
         self.conn.commit()
 
     def close(self) -> None:
-        self.conn.close()
+        if self._owns_conn:
+            self.conn.close()
 
     def __enter__(self) -> "Store":
         return self
@@ -70,9 +95,14 @@ class Store(AnalysisStore):
     def upsert(self, postings: Iterable[Posting]) -> tuple[int, int]:
         """Insert postings not seen before.
 
-        Returns (new, duplicate). A posting is a duplicate if its exact key is
-        known, or if its soft_key is known AND the description overlaps enough
-        that it is almost certainly the same role reposted.
+        Returns (new, duplicate). A posting is a duplicate if its source
+        already gave a job with the same id, if its exact key is known, or if
+        its soft_key is known AND the description overlaps enough that it is
+        almost certainly the same role reposted.
+
+        The source id comes first because the key hashes the description:
+        a company-site posting (whose id is a hash of its URL) re-read with
+        a description it lacked last time would otherwise come in again.
         """
         new = dup = 0
         now = datetime.utcnow().isoformat()
@@ -80,6 +110,13 @@ class Store(AnalysisStore):
         uid = self.user_id
 
         for p in postings:
+            if _has_source_id(p) and cur.execute(
+                "SELECT 1 FROM postings WHERE user_id=%s AND source=%s AND source_id=%s",
+                (uid, p.source, p.source_id),
+            ).fetchone():
+                dup += 1
+                continue
+
             if cur.execute(
                 "SELECT 1 FROM postings WHERE user_id=%s AND key=%s", (uid, p.key)
             ).fetchone():
@@ -329,12 +366,50 @@ def open_store(dsn: str | None = None, *, user_id: str,
     The request handlers return early a dozen different ways; relying on each
     of them to remember ``store.close()`` was a connection leak waiting to
     happen.
+
+    Connections come from a per-process pool: opening a fresh one to a
+    remote database costs about half a second, on every request. (Tests'
+    isolated ``schema`` stores set a search_path, so they get their own.)
     """
-    store = Store(dsn, user_id=user_id, schema=schema)
-    try:
-        yield store
-    finally:
-        store.close()
+    if schema:
+        store = Store(dsn, user_id=user_id, schema=schema)
+        try:
+            yield store
+        finally:
+            store.close()
+        return
+    # The pool's context rolls back anything a failed request left open
+    # before handing the connection to the next one.
+    with _pool(dsn or database_url()).connection() as conn:
+        yield Store(dsn, user_id=user_id, conn=conn)
+
+
+_POOLS: dict[str, ConnectionPool] = {}
+_POOLS_LOCK = threading.Lock()
+#: Enough for a page's handful of parallel API calls; Supabase's free tier
+#: allows far more connections than one server process needs.
+POOL_MAX = 8
+
+
+def _pool(dsn: str) -> ConnectionPool:
+    with _POOLS_LOCK:
+        pool = _POOLS.get(dsn)
+        if pool is None:
+            pool = ConnectionPool(
+                dsn, min_size=1, max_size=POOL_MAX, open=True,
+                kwargs={"row_factory": dict_row},
+                # A connection the database dropped while idle is replaced
+                # rather than handed to a request.
+                check=ConnectionPool.check_connection,
+            )
+            _POOLS[dsn] = pool
+        return pool
+
+
+def _has_source_id(p: Posting) -> bool:
+    """Whether the source gave a real id. Adapters stringify a missing one
+    as "None"; that mustn't make every such job the same job."""
+    return p.source_id not in ("", "None")
 
 
 def _overlap(a: str, b: str) -> float:

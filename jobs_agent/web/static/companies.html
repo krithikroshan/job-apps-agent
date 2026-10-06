@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/static/logo-mark.svg" type="image/svg+xml">
+<title>Companies</title>
+<link rel="stylesheet" href="/static/ds-styles.css">
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="/static/companies.css">
+</head>
+<body>
+{nav}
+
+<div class="page companies">
+  <div class="page-head">
+    <h1>Companies</h1>
+    <p>Many graduate schemes are only advertised on the firm's own careers site. Add the firms
+      you want, and each time you fetch new listings we read their sites for UK roles matching
+      your target titles and put them in your queue, scored like everything else.</p>
+    <p class="hint">We read each site slowly, one page a second. Some sites only show
+      their jobs with JavaScript and can't be read; for the best results paste the firm's
+      Workday, Greenhouse, Lever, Ashby or SmartRecruiters link (the page you land on after
+      clicking "Search jobs").</p>
+  </div>
+
+  <div class="banner" id="status-msg" role="status" aria-live="polite"></div>
+
+  <section class="block" aria-labelledby="watched-title">
+    <div class="block-head">
+      <h2 class="block-title" id="watched-title">Watching</h2>
+      <span class="count tnum" id="watched-count"></span>
+    </div>
+    <ul class="company-list" id="companies"><li class="company-empty">Loading…</li></ul>
+  </section>
+
+  <section class="block" aria-labelledby="add-title">
+    <h2 class="block-title" id="add-title">Add a company</h2>
+    <form class="add-form" id="add-company" novalidate>
+      <div class="field">
+        <label for="company-name">Name</label>
+        <input class="input" id="company-name" type="text" maxlength="80" autocomplete="off"
+               placeholder="e.g. Grant Thornton">
+      </div>
+      <div class="field">
+        <label for="company-url">Careers page link</label>
+        <input class="input" id="company-url" type="url" maxlength="500" autocomplete="off"
+               spellcheck="false" placeholder="https://firm.wd3.myworkdayjobs.com/Careers">
+      </div>
+      <button class="btn btn-primary" type="submit" id="btn-add">Add</button>
+    </form>
+    <span class="saved-note" id="add-msg"></span>
+  </section>
+
+  <section class="block" id="suggested-block" aria-labelledby="suggested-title" hidden>
+    <h2 class="block-title" id="suggested-title">Suggested for your field</h2>
+    <p class="hint">Firms that hire graduates in the field your profile's preset is set to.</p>
+    <ul class="suggested" id="suggested"></ul>
+  </section>
+</div>
+
+<script src="/static/nav.js"></script>
+<script src="/static/companies.js"></script>
+</body>
+</html>

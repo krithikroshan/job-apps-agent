@@ -1,6 +1,6 @@
 """HTTP plumbing: route table, request parsing, response serialisation.
 
-Five pages:
+Six pages:
 
   /login       sign in with an existing account
   /signup      create an account
@@ -9,6 +9,8 @@ Five pages:
   /documents   Profile page — candidate name, CV (uploaded as .docx or .pdf,
                text extracted), cover-letter template, and the scoring
                profile, stored once and reused for every draft
+  /companies   watched companies — employers' own careers sites, read for
+               UK roles matching the profile and staged in the queue
   /settings    AI providers — each user's own keys (stored encrypted), the
                order they're tried in, and the model asked for at each
 
@@ -39,7 +41,7 @@ from urllib.parse import parse_qs, urlparse
 
 from ..profile import load_profile
 from ..storage import DOC_CANDIDATE_NAME, open_store
-from . import api, api_ai, api_settings, auth, pages
+from . import api, api_ai, api_companies, api_settings, auth, pages
 
 def is_cross_site(headers: Mapping[str, str]) -> bool:
     """True for a POST another site's page made the browser send.
@@ -82,6 +84,7 @@ GET_ROUTES = {
     "/api/cv/file": api.get_cv_file,
     "/api/llm/settings": api_settings.get_llm_settings,
     "/api/analysis": api_ai.get_analysis_status,
+    "/api/companies": api_companies.get_companies,
 }
 
 POST_ROUTES = {
@@ -104,6 +107,9 @@ POST_ROUTES = {
     "/api/analyse/retry": api_ai.post_analyse_retry,
     "/api/suggest/profile": api_ai.post_suggest_profile,
     "/api/search": api_ai.post_search,
+    "/api/companies": api_companies.post_company,
+    "/api/companies/delete": api_companies.post_company_delete,
+    "/api/companies/check": api_companies.post_company_check,
 }
 
 
@@ -264,6 +270,12 @@ class Handler(BaseHTTPRequestHandler):
             with open_store(self.db, user_id=result.user_id) as store:
                 name = self._candidate_name(store)
             self._send_html(pages.documents_page(name), extra_headers)
+            return
+
+        if path == "/companies":
+            with open_store(self.db, user_id=result.user_id) as store:
+                name = self._candidate_name(store)
+            self._send_html(pages.companies_page(name), extra_headers)
             return
 
         if path == "/settings":

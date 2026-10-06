@@ -25,6 +25,7 @@ CONTENT_TYPES = {
 NAV_ITEMS = (
     ("/", "Queue", "queue"),
     ("/documents", "Profile", "documents"),
+    ("/companies", "Companies", "companies"),
     ("/settings", "Settings", "settings"),
 )
 
@@ -71,6 +72,10 @@ def queue_page(candidate_name: str) -> str:
 
 def documents_page(candidate_name: str = "") -> str:
     return render("documents.html", nav=nav("documents", candidate_name, show_logout=True))
+
+
+def companies_page(candidate_name: str = "") -> str:
+    return render("companies.html", nav=nav("companies", candidate_name, show_logout=True))
 
 
 def settings_page(candidate_name: str = "") -> str:

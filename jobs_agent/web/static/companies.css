@@ -1,0 +1,49 @@
+/* Companies — the firms whose own careers sites are read. One ruled sheet
+ * of watched firms, each line saying what the last check found (or, in red
+ * ink, why it couldn't), then the add form and the suggestions. */
+
+.companies { display: flex; flex-direction: column; gap: var(--space-6); }
+.companies > * { max-width: 820px; }
+.companies .page-head { max-width: 720px; }
+.companies .page-head .hint { font-size: 13.5px; color: var(--color-neutral-600); }
+
+.block { display: flex; flex-direction: column; gap: var(--space-3); }
+.block-head { display: flex; align-items: baseline; gap: var(--space-3); }
+.block-title { margin: 0; font-size: 16px; }
+.count { font-size: 13px; color: var(--color-neutral-600); }
+.hint { margin: 0; font-size: 13.5px; color: var(--color-neutral-600); }
+
+.company-list, .suggested {
+  list-style: none; margin: 0; padding: 0;
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.company, .suggestion, .company-empty {
+  padding: 14px 20px; display: flex; align-items: center; gap: var(--space-4);
+}
+.company + .company, .suggestion + .suggestion { border-top: 1px solid var(--color-divider); }
+.company-empty { color: var(--color-neutral-600); font-size: 14px; }
+
+.company-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.company-name { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+                font-weight: 600; }
+.company-host { font-size: 13px; color: var(--color-neutral-600);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.company-host a { color: inherit; }
+.company-last { font-size: 13px; color: var(--color-neutral-700); }
+.company-last.err { color: var(--color-negative); }
+.company-last .muted { color: var(--color-neutral-600); }
+.company-actions { display: flex; gap: var(--space-1); flex: none; }
+
+.add-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+            gap: var(--space-3); align-items: end; }
+.saved-note:empty { display: none; }
+
+.suggestion { justify-content: space-between; }
+.suggestion .company-host { flex: 1; }
+
+@media (max-width: 640px) {
+  .add-form { grid-template-columns: 1fr; }
+  .company { flex-wrap: wrap; }
+  .company-actions { width: 100%; }
+}

@@ -106,3 +106,31 @@ CREATE TABLE IF NOT EXISTS ai_usage (
     calls   INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, day)
 )
+;
+
+-- Companies whose own careers sites the user watches (see companies/),
+-- one row per (user, careers URL). ``id`` is a short hash of the URL.
+-- ``ats``/``slug`` are what detection found (which job-board software runs
+-- the site, and the firm's id on it). The last_* columns describe the most
+-- recent check -- including a failed one, whose message is ``last_error``.
+CREATE TABLE IF NOT EXISTS companies (
+    user_id      UUID NOT NULL,
+    id           TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    careers_url  TEXT NOT NULL,
+    ats          TEXT NOT NULL,
+    slug         TEXT NOT NULL DEFAULT '',
+    added        TEXT NOT NULL,
+    last_checked TEXT,
+    last_found   INTEGER,
+    last_new     INTEGER,
+    last_error   TEXT,
+    PRIMARY KEY (user_id, id),
+    UNIQUE (user_id, careers_url)
+)
+;
+
+-- Finds a posting by its source's own id, which upsert checks first so the
+-- same job re-read from a company site (id = hash of its URL) isn't stored
+-- twice when its description changes.
+CREATE INDEX IF NOT EXISTS postings_source_id_idx ON postings (user_id, source, source_id)
