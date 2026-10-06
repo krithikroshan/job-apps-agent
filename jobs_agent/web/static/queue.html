@@ -17,7 +17,10 @@
     <div class="stages" id="stages" role="tablist" aria-label="Application stage"></div>
 
     <section class="filters" aria-labelledby="filters-title">
-      <h2 class="rail-title" id="filters-title">Filters</h2>
+      <div class="filters-head">
+        <h2 class="rail-title" id="filters-title">Filters <span class="filters-on" id="filters-on"></span></h2>
+        <button class="btn btn-ghost btn-sm" id="btn-clear-filters" type="button" hidden>Clear filters</button>
+      </div>
       <div class="field">
         <label for="f-location">Location</label>
         <input class="input" id="f-location" type="text" list="f-location-options"
@@ -49,7 +52,7 @@
           <input class="input" id="f-min-score" type="number" value="0" min="0" step="1">
         </div>
         <div class="field">
-          <label for="f-limit">Show</label>
+          <label for="f-limit">Per page</label>
           <input class="input" id="f-limit" type="number" value="50" min="1" step="1">
         </div>
       </div>
@@ -124,6 +127,12 @@
       </div>
       <div id="results"><p class="empty-line">Loading…</p></div>
     </div>
+
+    <nav class="pager" id="pager" aria-label="Pages" hidden>
+      <button class="btn btn-secondary btn-sm" id="page-prev" type="button">Previous</button>
+      <span class="pager-text" id="page-text" aria-live="polite"></span>
+      <button class="btn btn-secondary btn-sm" id="page-next" type="button">Next</button>
+    </nav>
   </main>
 </div>
 

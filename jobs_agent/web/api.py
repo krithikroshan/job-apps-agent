@@ -115,18 +115,32 @@ def get_stats(store: Store, req: Request) -> Json:
     return Json(store.stats())
 
 
+#: Most rows one page of the queue may ask for.
+MAX_PAGE_SIZE = 200
+
+
 def get_queue(store: Store, req: Request) -> Json:
-    rows = store.queue(
+    """One page of a stage: ``rows``, plus ``total`` — how many rows the
+    current filters let through across every page — for the page count and
+    the "N match your filters" line."""
+    filters = dict(
         status=req.param("status", "new"),
         min_score=req.int_param("min_score", 0),
-        limit=req.int_param("limit", 50),
         location=req.param("location").strip() or None,
         min_salary=req.float_param("min_salary"),
         max_salary=req.float_param("max_salary"),
         contract_type=req.param("contract_type").strip() or None,
         ai=ai_filters(req),
     )
-    return Json([_row_to_dict(r) for r in rows])
+    limit = min(max(req.int_param("limit", 50), 1), MAX_PAGE_SIZE)
+    offset = max(req.int_param("offset", 0), 0)
+    rows = store.queue(limit=limit, offset=offset, **filters)
+    return Json({
+        "rows": [_row_to_dict(r) for r in rows],
+        "total": store.queue_count(**filters),
+        "offset": offset,
+        "limit": limit,
+    })
 
 
 def ai_filters(req: Request) -> AIFilters:

@@ -30,6 +30,10 @@ const VISA_LABEL = {
 const SOURCES = {
   reed: { label: "Reed", logo: "/static/logo-reed.png" },
   adzuna: { label: "Adzuna", logo: "/static/logo-adzuna.png" },
+  jooble: { label: "Jooble", logo: "/static/logo-jooble.png" },
+  careerjet: { label: "Careerjet", logo: "/static/logo-careerjet.png" },
+  // A watched company's own careers site (see the Companies page).
+  careers: { label: "the company's site", logo: "/static/logo-careers.svg" },
 };
 //: How much of a description the expanded row shows.
 const DESCRIPTION_CHARS = 1400;
@@ -118,11 +122,20 @@ function money(n) {
   return n >= 1000 ? `£${+(n / 1000).toFixed(1)}k` : `£${Math.round(n)}`;
 }
 
+/* Boards give hourly and daily rates as bare numbers; without a unit
+ * "£16–£18" reads like a typo next to "£38k". */
+function rateUnit(n) {
+  if (n < 100) return `<span class="muted">/hr</span>`;
+  if (n < 1000) return `<span class="muted">/day</span>`;
+  return "";
+}
+
 function salaryCell(row) {
   if (!row.salary_min) return `<span class="muted">Not stated</span>`;
+  const unit = rateUnit(row.salary_max || row.salary_min);
   return row.salary_max && row.salary_max !== row.salary_min
-    ? `${money(row.salary_min)}<span class="muted">–</span>${money(row.salary_max)}`
-    : money(row.salary_min);
+    ? `${money(row.salary_min)}<span class="muted">–</span>${money(row.salary_max)}${unit}`
+    : `${money(row.salary_min)}${unit}`;
 }
 
 /* "posted" is a YYYY-MM-DD date with no time, so age is counted in days. */
@@ -394,10 +407,45 @@ function emptyState() {
 //: Bumped by each loadQueue call; a response for an older call is dropped,
 //: so a slow reply for the previous stage or filters can't overwrite this one.
 let queueRequest = 0;
+//: 1-based page of the current stage; back to 1 whenever the stage or a
+//: filter changes, so a narrower result never opens on an empty page.
+let page = 1;
+
+/* Filters that are narrowing the list right now (page size isn't one). */
+function activeFilters() {
+  const on = [];
+  if (el("f-location").value.trim()) on.push("location");
+  if (el("f-min-salary").value.trim()) on.push("min salary");
+  if (el("f-max-salary").value.trim()) on.push("max salary");
+  if (el("f-contract-type").value) on.push("job type");
+  if (Number(el("f-min-score").value || 0) > 0) on.push("minimum match");
+  return on.concat(Object.keys(aiFilterParams()));
+}
+
+function showFilterSummary() {
+  const n = activeFilters().length;
+  el("filters-on").textContent = n ? `(${n} on)` : "";
+  el("btn-clear-filters").hidden = !n;
+}
+
+function filtersChanged() {
+  page = 1;
+  setMessage("");
+  showFilterSummary();
+  loadQueue();
+}
+
+function showPager(total, limit) {
+  const pages = Math.max(1, Math.ceil(total / limit));
+  el("pager").hidden = pages <= 1;
+  el("page-text").textContent = `Page ${page} of ${pages}`;
+  el("page-prev").disabled = page <= 1;
+  el("page-next").disabled = page >= pages;
+}
 
 async function loadQueue() {
   const mine = ++queueRequest;
-  const limit = el("f-limit").value || 50;
+  const limit = Math.max(1, Number(el("f-limit").value) || 50);
   const minScore = el("f-min-score").value || 0;
   const location = el("f-location").value.trim();
   const minSalary = el("f-min-salary").value.trim();
@@ -408,22 +456,39 @@ async function loadQueue() {
   el("stage-count").textContent = STAGE_HINT[stage];
   el("results").innerHTML = `<p class="empty-line">Loading…</p>`;
 
-  const params = new URLSearchParams({ status: stage, limit, min_score: minScore });
+  const params = new URLSearchParams({
+    status: stage, limit, min_score: minScore, offset: (page - 1) * limit,
+  });
   if (location) params.set("location", location);
   if (minSalary) params.set("min_salary", minSalary);
   if (maxSalary) params.set("max_salary", maxSalary);
   if (contractType) params.set("contract_type", contractType);
   for (const [name, value] of Object.entries(ai)) params.set(name, value);
   const res = await fetch(`/api/queue?${params}`);
-  const rows = await res.json();
+  const { rows = [], total = 0 } = await res.json().catch(() => ({}));
   if (mine !== queueRequest) return;
 
-  // The rail counts the whole stage; this counts what got past the filters.
-  // Where those differ, say so, or the two numbers look like a bug.
+  // Acting on the last row of the last page (shortlisting it, say) can
+  // leave that page empty: step back to the new last page.
+  if (!rows.length && total && page > 1) {
+    page = Math.ceil(total / limit);
+    return loadQueue();
+  }
+
+  // The rail counts the whole stage; with filters on, say how many of those
+  // made it through, or the two numbers look like a bug.
   const [one, many] = STAGE_COUNT[stage];
-  const total = stageTotals[stage] || 0;
-  const shown = rows.length < total ? `${rows.length} of ${total}` : String(rows.length);
-  el("stage-count").textContent = `${shown} ${rows.length === 1 ? one : many}. ${STAGE_HINT[stage]}`;
+  const stageTotal = stageTotals[stage] || 0;
+  const filtered = activeFilters().length > 0;
+  const noun = total === 1 ? one : many;  // "posting scored and waiting", …
+  const counted = filtered
+    ? `${total.toLocaleString("en-GB")} of ${stageTotal.toLocaleString("en-GB")} match your filters.`
+    : `${total.toLocaleString("en-GB")} ${noun}.`;
+  const first = (page - 1) * limit + 1;
+  const range = total > limit && rows.length
+    ? ` Showing ${first}–${first + rows.length - 1}.` : "";
+  el("stage-count").textContent = `${counted}${range} ${STAGE_HINT[stage]}`.trim();
+  showPager(total, limit);
 
   if (!rows.length) {
     el("results").innerHTML = emptyState();
@@ -458,6 +523,7 @@ async function reload() {
 function selectStage(next) {
   if (!STAGES.includes(next) || next === stage) return;
   stage = next;
+  page = 1;
   el("stages").querySelectorAll(".stage").forEach((b) => {
     b.setAttribute("aria-selected", String(b.dataset.stage === stage));
   });
@@ -641,10 +707,10 @@ el("results").addEventListener("click", async (ev) => {
 
 el("btn-refresh").addEventListener("click", () => { setMessage(""); reload(); });
 el("f-location").addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter") { setMessage(""); loadQueue(); }
+  if (ev.key === "Enter") filtersChanged();
 });
 // Picking a suggestion from the datalist fires "change" without an Enter.
-el("f-location").addEventListener("change", () => { setMessage(""); loadQueue(); });
+el("f-location").addEventListener("change", filtersChanged);
 
 /* The profile's search locations, offered as filter suggestions. */
 async function loadLocationOptions() {
@@ -661,11 +727,11 @@ async function loadLocationOptions() {
     // Suggestions are a convenience; the free-text filter still works.
   }
 }
-el("f-limit").addEventListener("change", () => { setMessage(""); loadQueue(); });
-el("f-min-score").addEventListener("change", () => { setMessage(""); loadQueue(); });
-el("f-min-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
-el("f-max-salary").addEventListener("change", () => { setMessage(""); loadQueue(); });
-el("f-contract-type").addEventListener("change", () => { setMessage(""); loadQueue(); });
+el("f-limit").addEventListener("change", filtersChanged);
+el("f-min-score").addEventListener("change", filtersChanged);
+el("f-min-salary").addEventListener("change", filtersChanged);
+el("f-max-salary").addEventListener("change", filtersChanged);
+el("f-contract-type").addEventListener("change", filtersChanged);
 
 /* — AI filters, shared by the queue request and the search box — */
 
@@ -688,7 +754,7 @@ function aiFilterParams() {
 }
 
 for (const id of [...Object.values(AI_FIELDS), ...Object.values(AI_FLAGS)]) {
-  el(id).addEventListener("change", () => { setMessage(""); loadQueue(); });
+  el(id).addEventListener("change", filtersChanged);
 }
 
 /* — plain-English search: the AI fills in the filters, visibly — */
@@ -722,6 +788,8 @@ el("search-form").addEventListener("submit", async (ev) => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return setMessage(data.error || "Couldn't read that search.", "error");
     applyFilters(data.filters);
+    page = 1;
+    showFilterSummary();
     const note = el("search-note");
     note.hidden = false;
     note.innerHTML = `${escapeHtml(data.note || "Filters set from your search.")}
@@ -735,10 +803,7 @@ el("search-form").addEventListener("submit", async (ev) => {
 
 el("search-note").addEventListener("click", (ev) => {
   if (!ev.target.closest("#btn-clear-search")) return;
-  applyFilters({});
-  el("search-input").value = "";
-  el("search-note").hidden = true;
-  loadQueue();
+  clearFilters();
 });
 
 /* — AI analysis, one batch per request, with progress — */
@@ -804,26 +869,98 @@ el("btn-retry-analysis").addEventListener("click", async () => {
   if (res.ok) runAnalysis();
 });
 
+/* — company careers sites, one per request (each can take a while) —
+ * Runs after the job boards, before AI analysis, so the AI reads what the
+ * companies turned up too. ``summary`` is the fetch's own result, kept on
+ * screen alongside the progress. Returns a sentence about what was found,
+ * or "" when no company was due.
+ */
+async function checkCompanies(summary) {
+  const listed = await fetch("/api/companies").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!listed || !listed.due) return "";
+  const total = listed.due;
+  let next = listed.next_due;
+  let done = 0;
+  let found = 0;
+  let fresh = 0;
+  let failed = 0;
+  let stopped = "";
+  let last = Infinity;
+  while (next) {
+    setMessage(`${summary} Checking company sites: ${next.name} (${done + 1} of ${total})…`, "progress");
+    const res = await fetch("/api/companies/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      // 409: another tab is on it. 429: today's check budget is spent —
+      // say so, or the user wonders why some firms never update.
+      if (res && res.status === 429) {
+        stopped = (await res.json().catch(() => ({}))).error || "Today's company checks are used up.";
+      }
+      break;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!data.company) break;
+    done += 1;
+    if (data.result.error) failed += 1;
+    found += data.result.kept;
+    fresh += data.result.new;
+    // Every check moves a company out of "due"; if the count doesn't fall,
+    // something's wrong and looping would hammer the server.
+    if (data.remaining >= last) break;
+    last = data.remaining;
+    next = data.remaining ? data.next_due : null;
+  }
+  if (!done) return stopped;
+  const parts = [`Checked ${done} company site${done === 1 ? "" : "s"}: ${found} matched, ${fresh} new`];
+  if (failed) parts.push(`${failed} couldn't be read (see Companies)`);
+  return parts.join("; ") + "." + (stopped ? ` ${stopped}` : "");
+}
+
+function clearFilters() {
+  applyFilters({});
+  el("search-input").value = "";
+  el("search-note").hidden = true;
+  filtersChanged();
+}
+
+el("btn-clear-filters").addEventListener("click", clearFilters);
+
+function goToPage(next) {
+  page = next;
+  loadQueue();
+  document.querySelector(".ledger").scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+el("page-prev").addEventListener("click", () => { if (page > 1) goToPage(page - 1); });
+el("page-next").addEventListener("click", () => goToPage(page + 1));
+
 async function fetchListings() {
   const btn = el("btn-fetch");
   btn.disabled = true;
-  setMessage("Searching Reed and Adzuna for new postings…", "progress");
+  setMessage("Searching the job boards for new postings…", "progress");
   try {
     const res = await fetch("/api/fetch", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error || "Fetch failed.", "error");
-    } else {
+    const data = await res.json().catch(() => ({}));
+    // A board failure (no keys, an outage) shouldn't stop the company
+    // sites being read: they don't need any board.
+    let summary;
+    if (res.ok) {
       const skipped = (data.warnings || []).length
         ? ` Note: ${data.warnings.join("; ")}.`
         : "";
-      setMessage(
-        `Found ${data.raw} postings. ${data.kept} matched your profile: ${data.new} new, ${data.duplicates} already seen.${skipped}`,
-        "info",
-      );
+      summary = `Found ${data.raw} postings. ${data.kept} matched your profile: ${data.new} new, ${data.duplicates} already seen.${skipped}`;
+      setMessage(summary, "info");
       await reload();
-      runAnalysis();
+    } else {
+      summary = `Job boards: ${data.error || "the search failed"}.`;
     }
+    const companies = await checkCompanies(summary);
+    setMessage(companies ? `${summary} ${companies}` : summary, res.ok || companies ? "info" : "error");
+    await reload();
+    runAnalysis();
   } catch (e) {
     setMessage("Fetch failed: " + e, "error");
   } finally {
@@ -834,5 +971,6 @@ async function fetchListings() {
 el("btn-fetch").addEventListener("click", fetchListings);
 
 loadLocationOptions();
+showFilterSummary();
 reload();
 loadAnalysisStatus();

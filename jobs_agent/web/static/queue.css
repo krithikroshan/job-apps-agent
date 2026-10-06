@@ -45,6 +45,8 @@
 
 .filters { display: flex; flex-direction: column; gap: var(--space-3);
            padding-top: var(--space-4); border-top: 1px solid var(--color-divider); }
+.filters-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.filters-on { font-weight: 500; color: var(--color-accent); }
 .field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .rail-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--color-neutral-600); }
 
@@ -205,6 +207,10 @@
 .letter-text:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 8px; border-radius: 2px; }
 .letter-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .letter-actions .saved-note { margin-left: auto; }
+
+/* — pages — */
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--space-4); }
+.pager-text { font-size: 14px; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }
 
 /* — empty states — */
 .empty-line { margin: 0; padding: 48px var(--space-4); text-align: center; color: var(--color-neutral-600); }

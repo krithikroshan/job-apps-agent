@@ -119,15 +119,12 @@ class Store(AnalysisStore):
         self.conn.commit()
         return new, dup
 
-    def queue(self, min_score: int = 0, limit: int = 50,
-              status: str = "new", location: str | None = None,
-              min_salary: float | None = None,
-              max_salary: float | None = None,
-              contract_type: str | None = None,
-              ai: AIFilters | None = None) -> Iterator[DictRow]:
-        """One stage of the queue, best Match first. Each row carries
-        ``match`` (0-100, see :func:`match_score`) and ``analysis`` (the AI's
-        result, or None); ``min_score`` filters on Match."""
+    def _queue_sql(self, status: str, location: str | None, min_salary: float | None,
+                   max_salary: float | None, contract_type: str | None,
+                   ai: AIFilters | None, min_score: int) -> tuple[str, list]:
+        """One stage's rows with every filter applied, as a subquery ``q``
+        carrying ``match`` — shared by :meth:`queue` and :meth:`queue_count`
+        so a page and its total can never disagree."""
         query = f"""SELECT * FROM (
                  SELECT p.*, a.status, a.letter, a.notes, a.updated,
                         x.result AS analysis, x.model AS analysis_model,
@@ -158,10 +155,35 @@ class Store(AnalysisStore):
             ai_sql, ai_params = ai.sql()
             query += ai_sql
             params += ai_params
-        query += """) q WHERE q.match >= %s
-                 ORDER BY q.match DESC, q.first_seen DESC LIMIT %s"""
-        params += [min_score, limit]
-        yield from self.conn.execute(query, params)
+        query += ") q WHERE q.match >= %s"
+        params.append(min_score)
+        return query, params
+
+    def queue(self, min_score: int = 0, limit: int = 50,
+              status: str = "new", location: str | None = None,
+              min_salary: float | None = None,
+              max_salary: float | None = None,
+              contract_type: str | None = None,
+              ai: AIFilters | None = None, offset: int = 0) -> Iterator[DictRow]:
+        """One page of a stage of the queue, best Match first. Each row
+        carries ``match`` (0-100, see :func:`match_score`) and ``analysis``
+        (the AI's result, or None); ``min_score`` filters on Match."""
+        query, params = self._queue_sql(status, location, min_salary, max_salary,
+                                        contract_type, ai, min_score)
+        # key breaks ties so pages are stable: equal matches and fetch times
+        # would otherwise shuffle between requests and repeat or skip rows.
+        query += " ORDER BY q.match DESC, q.first_seen DESC, q.key LIMIT %s OFFSET %s"
+        yield from self.conn.execute(query, params + [limit, max(0, offset)])
+
+    def queue_count(self, min_score: int = 0, status: str = "new",
+                    location: str | None = None, min_salary: float | None = None,
+                    max_salary: float | None = None, contract_type: str | None = None,
+                    ai: AIFilters | None = None) -> int:
+        """How many rows :meth:`queue` would page through with these filters."""
+        query, params = self._queue_sql(status, location, min_salary, max_salary,
+                                        contract_type, ai, min_score)
+        row = self.conn.execute(f"SELECT COUNT(*) AS n FROM ({query}) counted", params).fetchone()
+        return row["n"]
 
     def get_posting(self, key: str) -> DictRow | None:
         return self.conn.execute(

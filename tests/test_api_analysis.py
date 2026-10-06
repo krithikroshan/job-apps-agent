@@ -72,7 +72,7 @@ def test_the_queue_carries_match_and_analysis(store):
     p = make_posting(score=40)
     store.upsert([p])
     store.save_analysis(p.key, "ctx", "done", {"fit": 90, "visa": "offered"}, "m", None)
-    rows = api.get_queue(store, api.Request(query={"visa": ["offered"]})).body
+    rows = api.get_queue(store, api.Request(query={"visa": ["offered"]})).body["rows"]
     assert rows[0]["analysis"]["fit"] == 90
     assert rows[0]["match"] > 40
 
