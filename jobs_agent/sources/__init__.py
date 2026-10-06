@@ -34,8 +34,11 @@ class NoSourcesConfigured(RuntimeError):
     """No job board had usable credentials in the environment."""
 
 
-def build_sources() -> tuple[list[JobSource], list[str]]:
+def build_sources(job_category: str = "") -> tuple[list[JobSource], list[str]]:
     """Build every adapter whose credentials are present.
+
+    ``job_category`` is the profile's board-neutral sector slug; boards that
+    can filter by sector (Adzuna) translate it, the rest ignore it.
 
     Returns ``(sources, warnings)``, where each warning names a board that
     was skipped for want of keys. Raises :class:`NoSourcesConfigured` if
@@ -52,7 +55,7 @@ def build_sources() -> tuple[list[JobSource], list[str]]:
 
     adzuna_id, adzuna_key = os.getenv("ADZUNA_APP_ID"), os.getenv("ADZUNA_APP_KEY")
     if adzuna_id and adzuna_key:
-        sources.append(AdzunaSource(adzuna_id, adzuna_key))
+        sources.append(AdzunaSource(adzuna_id, adzuna_key, category=job_category))
     else:
         warnings.append("ADZUNA_APP_ID/KEY not set — skipping Adzuna")
 

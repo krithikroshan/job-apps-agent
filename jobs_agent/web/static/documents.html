@@ -97,7 +97,23 @@
               <label class="block-label" for="radius">Radius (miles)</label>
               <input class="input" id="radius" type="number" min="0" max="100" step="1">
             </div>
+            <div class="field">
+              <label class="block-label" for="job-category">Sector</label>
+              <select class="input" id="job-category">
+                <option value="">Any</option>
+                <option value="accounting">Accounting &amp; finance</option>
+                <option value="legal">Legal</option>
+                <option value="it">IT</option>
+                <option value="engineering">Engineering</option>
+                <option value="marketing">Marketing, PR &amp; advertising</option>
+                <option value="hr">HR &amp; recruitment</option>
+                <option value="consultancy">Consultancy</option>
+                <option value="graduate">Graduate</option>
+              </select>
+            </div>
           </div>
+          <p class="hint">Sector narrows Adzuna's search to its matching category; the other
+            boards ignore it. Use Any if a field's roles get filed under several sectors.</p>
           <datalist id="uk-places">
             <option value="UK"><option value="London"><option value="Manchester">
             <option value="Birmingham"><option value="Leeds"><option value="Bristol">

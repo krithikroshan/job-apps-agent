@@ -12,6 +12,7 @@ DESCRIPTION = ("Compliance, financial crime, KYC and paralegal roles for a law "
 PROFILE = replace(
     DEFAULT_PROFILE,
     preset="law_compliance",
+    job_category="legal",
     target_titles={
         # Compliance / financial crime
         "compliance analyst": 30,

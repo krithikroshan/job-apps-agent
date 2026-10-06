@@ -35,6 +35,22 @@ MAX_SALARY_THRESHOLD = 1_000_000
 #: Band points sit alongside title weights (~30) and the domain cap (30).
 MAX_SALARY_POINTS = 100
 
+#: Board-neutral job sectors a search can be narrowed to, slug -> label.
+#: "" searches every sector. Each adapter that supports sectors maps these
+#: slugs to its own tags (see ``sources/adzuna.py``); one that doesn't just
+#: ignores the setting, so a slug is never a reason to skip a board.
+JOB_CATEGORIES: dict[str, str] = {
+    "": "Any",
+    "accounting": "Accounting & finance",
+    "legal": "Legal",
+    "it": "IT",
+    "engineering": "Engineering",
+    "marketing": "Marketing, PR & advertising",
+    "hr": "HR & recruitment",
+    "consultancy": "Consultancy",
+    "graduate": "Graduate",
+}
+
 
 def _default_salary_bands() -> list[list[int]]:
     return [[33_400, 10], [28_000, 5], [22_000, 0], [0, -8]]
@@ -64,6 +80,11 @@ class Profile:
     # location, so each extra location multiplies the job-board calls.
     locations: list[str] = field(default_factory=lambda: ["London"])
     radius_miles: int = 15
+
+    # A JOB_CATEGORIES slug narrowing the boards that support sectors, or ""
+    # for every sector. Titles alone match too broadly on Adzuna ("trainee"
+    # finds trainee electricians), which a sector filter cuts out cheaply.
+    job_category: str = ""
 
     # [threshold, points] pairs, highest threshold first. A posting's
     # minimum salary earns the points of the first band it reaches; a 0
@@ -261,6 +282,16 @@ def parse_locations(text: str) -> list[str]:
         raise ProfileError(
             f"Locations: at most {MAX_LOCATIONS} — each one multiplies the searches a fetch runs")
     return out
+
+
+def parse_job_category(text: str) -> str:
+    """A :data:`JOB_CATEGORIES` slug, or "" for any sector."""
+    slug = (text or "").strip().lower()
+    if slug not in JOB_CATEGORIES:
+        raise ProfileError(
+            f"Job category: {slug!r} isn't one of "
+            f"{', '.join(repr(k) for k in JOB_CATEGORIES if k)}")
+    return slug
 
 
 def parse_int(text: str, *, what: str, lo: int, hi: int) -> int:

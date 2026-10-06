@@ -76,3 +76,41 @@ def test_gather_all_fans_out_over_every_keyword_and_location():
         ("a", "Leeds", 20), ("a", "London", 20),
         ("b", "Leeds", 20), ("b", "London", 20),
     ]
+
+
+def test_adzuna_sends_the_category_tag_for_a_known_category():
+    client, seen = capture({"results": []})
+    run(AdzunaSource("id", "key", category="accounting").fetch(
+        client, "audit trainee", 10, location="UK", radius_miles=10))
+    assert seen[0].url.params["category"] == "accounting-finance-jobs"
+
+
+def test_adzuna_sends_no_category_by_default():
+    client, seen = capture({"results": []})
+    run(AdzunaSource("id", "key").fetch(client, "audit trainee", 10,
+                                        location="UK", radius_miles=10))
+    assert "category" not in seen[0].url.params
+
+
+def test_every_profile_category_has_an_adzuna_tag():
+    from jobs_agent.profile import JOB_CATEGORIES
+    from jobs_agent.sources.adzuna import ADZUNA_CATEGORIES
+
+    assert set(ADZUNA_CATEGORIES) == set(JOB_CATEGORIES) - {""}
+
+
+def test_adzuna_maps_its_created_timestamp_to_a_date():
+    from datetime import date
+
+    p = AdzunaSource._to_posting({"id": 1, "created": "2026-09-30T08:15:00Z"})
+    assert p.posted == date(2026, 9, 30)
+
+
+def test_parse_date_reads_a_prefix_of_a_longer_timestamp():
+    from datetime import date
+
+    from jobs_agent.sources.base import parse_date
+
+    assert parse_date("2026-09-15T12:55:35.3870000", "%Y-%m-%d") == date(2026, 9, 15)
+    assert parse_date("15/09/2026", "%d/%m/%Y") == date(2026, 9, 15)
+    assert parse_date("garbage", "%Y-%m-%d") is None

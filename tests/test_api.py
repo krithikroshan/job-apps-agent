@@ -314,3 +314,18 @@ def test_an_unknown_preset_from_an_old_save_is_dropped_not_fatal(store):
     res = api.post_profile(store, req(target_titles="clerk = 10", preset="retired-preset"))
     assert res.status == 200
     assert load_profile(store).preset == ""
+
+
+def test_job_category_round_trips_through_the_profile_text(store):
+    assert api.get_profile(store, api.Request()).body["job_category"] == ""
+    res = api.post_profile(store, req(target_titles="clerk = 10", job_category="legal"))
+    assert res.status == 200, res.body
+    assert load_profile(store).job_category == "legal"
+    assert api.get_profile(store, api.Request()).body["job_category"] == "legal"
+
+
+@pytest.mark.parametrize("value", ["astronaut", ["legal"]])
+def test_a_bad_job_category_saves_nothing(store, value):
+    res = api.post_profile(store, req(target_titles="clerk = 10", job_category=value))
+    assert res.status == 400
+    assert load_profile(store) == DEFAULT_PROFILE

@@ -30,6 +30,7 @@ const FIELDS = {
 const SETTINGS = {
   locations: "locations",
   radius_miles: "radius",
+  job_category: "job-category",
   domain_only_threshold: "domain-only",
   contract_bonus: "contract-bonus",
 };

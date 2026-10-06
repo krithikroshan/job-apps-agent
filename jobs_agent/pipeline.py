@@ -87,8 +87,8 @@ async def fetch_and_store(store: Store, *, per_keyword: int = 200,
     Raises :class:`~jobs_agent.sources.NoSourcesConfigured` when no board has
     credentials — callers decide whether that's an exit or an HTTP 400.
     """
-    sources, warnings = build_sources()
     profile = load_profile(store)
+    sources, warnings = build_sources(job_category=profile.job_category)
 
     plan = search_plan(profile, keywords)
     raw = await gather_all(sources, plan.keywords, plan.locations,

@@ -155,3 +155,33 @@ def test_salary_band_points_are_bounded():
 def test_a_stored_profile_with_no_locations_gets_the_default():
     p = Profile.from_json('{"name": "", "locations": []}')
     assert p.locations == ["London"]
+
+
+# -- job category -------------------------------------------------------------
+
+def test_job_category_defaults_to_any():
+    assert DEFAULT_PROFILE.job_category == ""
+
+
+def test_a_profile_saved_before_job_category_still_loads():
+    import json
+
+    data = json.loads(DEFAULT_PROFILE.to_json())
+    del data["job_category"]
+    assert Profile.from_json(json.dumps(data)).job_category == ""
+
+
+def test_parse_job_category_accepts_known_slugs_and_blank():
+    from jobs_agent.profile import JOB_CATEGORIES, parse_job_category
+
+    assert parse_job_category("") == ""
+    assert parse_job_category(" Legal ") == "legal"
+    for slug in JOB_CATEGORIES:
+        assert parse_job_category(slug) == slug
+
+
+def test_parse_job_category_rejects_an_unknown_slug():
+    from jobs_agent.profile import parse_job_category
+
+    with pytest.raises(ProfileError, match="Job category"):
+        parse_job_category("astronaut")

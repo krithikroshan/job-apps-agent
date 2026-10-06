@@ -1,4 +1,10 @@
-"""Adzuna adapter. https://developer.adzuna.com/"""
+"""Adzuna adapter. https://developer.adzuna.com/
+
+Adzuna can narrow a search to a sector via ``category``, which takes its own
+tags (listed by ``GET /v1/api/jobs/gb/categories``). The profile stores a
+board-neutral slug; :data:`ADZUNA_CATEGORIES` translates it here, so another
+board's sector scheme never leaks into the profile.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +15,18 @@ import httpx
 from ..models import Posting
 from .base import clean, get_with_retry, is_anywhere, parse_date
 
+#: ``profile.JOB_CATEGORIES`` slug -> Adzuna GB category tag.
+ADZUNA_CATEGORIES: dict[str, str] = {
+    "accounting": "accounting-finance-jobs",
+    "legal": "legal-jobs",
+    "it": "it-jobs",
+    "engineering": "engineering-jobs",
+    "marketing": "pr-advertising-marketing-jobs",
+    "hr": "hr-jobs",
+    "consultancy": "consultancy-jobs",
+    "graduate": "graduate-jobs",
+}
+
 
 class AdzunaSource:
     name = "adzuna"
@@ -17,8 +35,11 @@ class AdzunaSource:
     KM_PER_MILE = 1.609
 
     def __init__(self, app_id: str, app_key: str,
-                 max_days_old: int = 21, max_concurrency: int = 2):
+                 max_days_old: int = 21, max_concurrency: int = 2,
+                 category: str = ""):
         self.app_id = app_id
+        # An unmapped slug searches every sector rather than failing the board.
+        self.category = ADZUNA_CATEGORIES.get(category, "")
         self.app_key = app_key
         self.max_days_old = max_days_old
         self._sem = asyncio.Semaphore(max_concurrency)
@@ -29,6 +50,7 @@ class AdzunaSource:
         # Adzuna's distance is in kilometres.
         place = ({} if is_anywhere(location) else
                  {"where": location, "distance": round(radius_miles * self.KM_PER_MILE)})
+        sector = {"category": self.category} if self.category else {}
         out: list[Posting] = []
         page = 1
         while len(out) < max_results:
@@ -37,6 +59,7 @@ class AdzunaSource:
                 "app_key": self.app_key,
                 "what": keyword,
                 **place,
+                **sector,
                 "results_per_page": self.PAGE,
                 "max_days_old": self.max_days_old,
                 "content-type": "application/json",

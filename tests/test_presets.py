@@ -65,3 +65,8 @@ def test_every_preset_fits_one_fetch_without_dropping_titles(preset):
     from jobs_agent.pipeline import search_plan
 
     assert search_plan(preset.profile).warnings == []
+
+
+def test_presets_narrow_adzuna_to_their_field():
+    assert get_preset("accounting_graduate").profile.job_category == "accounting"
+    assert get_preset("law_compliance").profile.job_category == "legal"

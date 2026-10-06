@@ -28,6 +28,7 @@ from ..profile import (
     format_weights,
     load_profile,
     parse_int,
+    parse_job_category,
     parse_lines,
     parse_locations,
     parse_salary_bands,
@@ -401,6 +402,7 @@ def profile_as_text(profile) -> dict[str, str]:
         "experience_blockers": format_lines(profile.experience_blockers),
         "locations": format_locations(profile.locations),
         "radius_miles": str(profile.radius_miles),
+        "job_category": profile.job_category,
         "salary_bands": format_salary_bands(profile.salary_bands),
         "contract_bonus": str(profile.contract_bonus),
         "domain_only_threshold": str(profile.domain_only_threshold),
@@ -432,8 +434,8 @@ def _profile_from_text(payload: dict, *, base):
 def _search_settings_from_text(payload: dict) -> dict[str, Any]:
     """The search-area and scoring-knob fields the payload supplies, parsed
     and range-checked."""
-    for key in ("locations", "radius_miles", "salary_bands", "contract_bonus",
-                "domain_only_threshold", "preset"):
+    for key in ("locations", "radius_miles", "job_category", "salary_bands",
+                "contract_bonus", "domain_only_threshold", "preset"):
         if key in payload and not isinstance(payload[key], (str, type(None))):
             raise ProfileError(f"{key}: expected text")
     changes: dict[str, Any] = {}
@@ -442,6 +444,8 @@ def _search_settings_from_text(payload: dict) -> dict[str, Any]:
     if "radius_miles" in payload:
         changes["radius_miles"] = parse_int(
             payload["radius_miles"], what="Radius", lo=0, hi=MAX_RADIUS_MILES)
+    if "job_category" in payload:
+        changes["job_category"] = parse_job_category(payload["job_category"])
     if "salary_bands" in payload:
         changes["salary_bands"] = parse_salary_bands(payload["salary_bands"])
     if "contract_bonus" in payload:

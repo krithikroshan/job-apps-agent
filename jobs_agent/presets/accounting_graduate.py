@@ -13,6 +13,7 @@ PROFILE = Profile(
     preset="accounting_graduate",
     locations=["London"],
     radius_miles=15,
+    job_category="accounting",
     target_titles={
         # Graduate schemes and trainee contracts — the strongest fit
         "graduate accountant": 30,

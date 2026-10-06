@@ -31,3 +31,26 @@ def test_the_plan_is_capped_and_says_so():
 
 def test_explicit_keywords_override_the_profile():
     assert search_plan(DEFAULT_PROFILE, keywords=["x"]).keywords == ["x"]
+
+
+def test_fetch_passes_the_profiles_job_category_to_the_boards(store, monkeypatch):
+    import asyncio
+
+    from jobs_agent import pipeline
+    from jobs_agent.profile import save_profile
+
+    save_profile(store, replace(DEFAULT_PROFILE, target_titles={"auditor": 20},
+                                job_category="accounting"))
+    seen = {}
+
+    def fake_build_sources(job_category=""):
+        seen["category"] = job_category
+        return [], []
+
+    async def no_jobs(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr(pipeline, "build_sources", fake_build_sources)
+    monkeypatch.setattr(pipeline, "gather_all", no_jobs)
+    asyncio.run(pipeline.fetch_and_store(store))
+    assert seen["category"] == "accounting"
