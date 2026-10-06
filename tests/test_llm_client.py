@@ -206,3 +206,15 @@ def test_a_busy_server_key_says_busy_not_broken(store, calls, monkeypatch, failu
         ask(store)
     assert "busy" in str(e.value)
     assert "isn't working" not in str(e.value)
+
+
+def test_a_cut_off_reply_on_a_server_key_says_so_not_that_the_key_is_broken(
+        store, calls, monkeypatch):
+    from jobs_agent.llm.base import truncated
+
+    monkeypatch.setenv("GEMINI_API_KEY", "server-gemini")
+    calls["replies"]["gemini"] = truncated()
+    with pytest.raises(LLMError) as e:
+        ask(store)
+    assert "cut off" in str(e.value)
+    assert "isn't working" not in str(e.value)

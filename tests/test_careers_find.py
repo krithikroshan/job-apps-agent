@@ -195,6 +195,27 @@ def test_a_careers_page_that_lists_jobs_beats_a_page_past_it():
     assert found.site.url == "https://careers.firm.co.uk/early-careers/"
 
 
+def test_a_bare_domain_that_fails_is_retried_with_www():
+    found, _ = run({
+        "https://bankofengland.co.uk/": (500, "bad certificate"),
+        "https://www.bankofengland.co.uk/": link("/careers", "Careers"),
+        "https://www.bankofengland.co.uk/careers": link(
+            "https://boe.wd3.myworkdayjobs.com/BoE", "Search vacancies"),
+    }, name="Bank of England", website="bankofengland.co.uk")
+    assert found.site.ats == "workday"
+
+
+@pytest.mark.parametrize("website", ["gov.uk", "www.gov.uk", "nhs.uk", "ac.uk", "co.uk"])
+def test_a_domain_shared_by_many_organisations_is_not_crawled(website):
+    found, seen = run({
+        "https://gov.uk/": link("/careers", "Careers"),
+        "https://www.gov.uk/": link("/careers", "Careers"),
+        "https://www.gov.uk/careers": "<p>Civil service careers</p>",
+    }, name="Government Legal Department", website=website)
+    assert found is None
+    assert not any("gov.uk" in url for url in seen)
+
+
 def test_a_greenhouse_board_with_the_same_name_is_found_without_a_website():
     found, _ = run({
         "https://boards-api.greenhouse.io/v1/boards/monzo": {"name": "Monzo"},

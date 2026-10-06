@@ -101,3 +101,10 @@ def test_a_provider_failure_is_a_friendly_error():
 def test_a_profile_with_nothing_to_go_on_asks_for_one_first():
     with pytest.raises(SuggestError, match="target titles"):
         suggest_companies(FakeClient(reply()), DEFAULT_PROFILE, cv="")
+
+
+def test_a_thinking_model_has_room_to_finish_the_list():
+    """Gemini's thinking tokens count against the limit; 2048 came back cut off."""
+    client = FakeClient(reply())
+    suggest_companies(client, PROFILE)
+    assert client.calls[0]["max_tokens"] >= 8192

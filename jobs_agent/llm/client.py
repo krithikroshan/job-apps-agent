@@ -11,7 +11,7 @@ from typing import Callable
 
 from ..storage import Store
 from . import registry
-from .base import LLMError, Message, Prompt
+from .base import LLMError, Message, Prompt, truncated
 from .keys import SERVER, resolve_key
 from .settings import full_order, load_settings, model_for
 
@@ -54,7 +54,12 @@ def _is_transient(e: LLMError) -> bool:
 
 
 def _redacted(e: LLMError) -> str:
-    return SERVER_KEY_BUSY if _is_transient(e) else SERVER_KEY_FAILED
+    if _is_transient(e):
+        return SERVER_KEY_BUSY
+    # Our own message, about the reply rather than the key: nothing to hide.
+    if str(e) == str(truncated()):
+        return str(e)
+    return SERVER_KEY_FAILED
 
 
 @dataclass(frozen=True)

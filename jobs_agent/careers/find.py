@@ -61,6 +61,10 @@ _TRACKING_KEYS = ("source", "gclid", "fbclid", "mc_cid", "mc_eid")
 _ELSEWHERE = ("linkedin.com", "facebook.com", "twitter.com", "x.com", "instagram.com",
               "youtube.com", "tiktok.com", "glassdoor.com", "glassdoor.co.uk", "indeed.com",
               "reed.co.uk", "totaljobs.com", "cv-library.co.uk", "adzuna.co.uk")
+#: Domains shared by many organisations: gov.uk is every government
+#: department, so its homepage can't lead to one employer's careers site.
+_SHARED_DOMAINS = ("gov.uk", "nhs.uk", "ac.uk", "co.uk", "org.uk", "police.uk", "sch.uk",
+                   "ltd.uk", "plc.uk", "net.uk", "me.uk")
 _LEGAL_SUFFIXES = ("uk", "llp", "ltd", "limited", "plc", "group", "inc", "co")
 _GREENHOUSE_API = "https://boards-api.greenhouse.io/v1/boards/{slug}"
 _GREENHOUSE_BOARD = "https://boards.greenhouse.io/{slug}"
@@ -118,9 +122,16 @@ def _same_name(a: str, b: str) -> bool:
     return bool(_core(a)) and _core(a) == _core(b)
 
 
-def _homepage(website: str) -> str:
-    host = _bare(re.sub(r"^https?://", "", (website or "").strip().lower()).split("/", 1)[0])
-    return f"https://{host}/" if host else ""
+def _homepages(website: str) -> list[str]:
+    """The homepage to read, then the same with or without "www." for
+    sites that only answer on one (the Bank of England's bare domain has
+    the wrong certificate). None for a domain many organisations share,
+    whose homepage says nothing about the one employer."""
+    host = re.sub(r"^https?://", "", (website or "").strip().lower()).split("/", 1)[0]
+    if not host or _bare(host) in _SHARED_DOMAINS:
+        return []
+    other = _bare(host) if host.startswith("www.") else f"www.{host}"
+    return [f"https://{host}/", f"https://{other}/"]
 
 
 def _absolute(base: str, href: str) -> str:
@@ -269,16 +280,24 @@ async def _from_careers_pages(client: httpx.AsyncClient, urls: list[str],
 
 async def _from_website(client: httpx.AsyncClient, website: str,
                         budget: _Budget) -> Found | None:
-    home = _homepage(website)
-    if not home:
-        return None
-    try:
-        check_url(home)
-    except UnsafeURL:
-        return None
-    found, html = await _from_page(client, home, budget)
-    if found:
-        return found
+    home = html = None
+    for url in _homepages(website):
+        try:
+            check_url(url)
+        except UnsafeURL:
+            return None
+        found, html = await _from_page(client, url, budget)
+        if found:
+            return found
+        if html is not None:
+            home = url
+            break
+    if home is None:
+        # Neither homepage answered: the usual paths on the address as given.
+        pages = _homepages(website)
+        if not pages:
+            return None
+        home = pages[0]
     candidates = _career_links(html, home)[:MAX_CANDIDATES] if html else []
     found = await _from_careers_pages(client, candidates, budget)
     if found:
