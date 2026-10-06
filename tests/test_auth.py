@@ -140,3 +140,51 @@ def test_sign_up_passes_the_redirect_to_supabase(monkeypatch):
     assert auth.sign_up("a@b.c", "pw", redirect_to="https://app.example/login") is None
     assert seen["url"] == "https://x.supabase.co/auth/v1/signup"
     assert seen["params"] == {"redirect_to": "https://app.example/login"}
+
+
+# -- verified-token cache ---------------------------------------------------------
+
+def _counting_get_user(monkeypatch, user=None):
+    calls = []
+
+    def fake(token):
+        calls.append(token)
+        return user
+    monkeypatch.setattr(auth, "_fetch_user", fake)
+    auth._VERIFIED.clear()
+    return calls
+
+
+def test_a_verified_token_is_not_rechecked_on_every_request(monkeypatch):
+    calls = _counting_get_user(monkeypatch, {"id": "u1", "email": "a@b.c"})
+    for _ in range(3):
+        assert auth.resolve({auth.ACCESS_COOKIE: "tok"}).user_id == "u1"
+    assert calls == ["tok"]
+
+
+def test_a_cached_token_is_rechecked_once_it_goes_stale(monkeypatch):
+    calls = _counting_get_user(monkeypatch, {"id": "u1", "email": ""})
+    now = [1000.0]
+    monkeypatch.setattr(auth.time, "monotonic", lambda: now[0])
+    auth.resolve({auth.ACCESS_COOKIE: "tok"})
+    now[0] += auth.VERIFIED_TTL_SECONDS + 1
+    auth.resolve({auth.ACCESS_COOKIE: "tok"})
+    assert calls == ["tok", "tok"]
+
+
+def test_a_rejected_token_is_not_cached(monkeypatch):
+    calls = _counting_get_user(monkeypatch, None)
+    assert auth.resolve({auth.ACCESS_COOKIE: "bad"}) is None
+    assert auth.resolve({auth.ACCESS_COOKIE: "bad"}) is None
+    assert calls == ["bad", "bad"]
+
+
+def test_signing_out_forgets_the_token(monkeypatch):
+    calls = _counting_get_user(monkeypatch, {"id": "u1", "email": ""})
+    monkeypatch.setattr(auth.httpx, "post", lambda *a, **k: None)
+    monkeypatch.setattr(auth, "supabase_url", lambda: "https://x.supabase.co")
+    monkeypatch.setattr(auth, "supabase_api_key", lambda: "k")
+    auth.resolve({auth.ACCESS_COOKIE: "tok"})
+    auth.sign_out("tok")
+    auth.resolve({auth.ACCESS_COOKIE: "tok"})
+    assert calls == ["tok", "tok"]
